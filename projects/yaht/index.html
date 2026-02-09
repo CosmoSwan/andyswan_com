@@ -63,6 +63,12 @@ body::before {
 
 a { color: inherit; text-decoration: none; }
 
+/* Touch-friendly: prevent zoom on double-tap, smooth scrolling */
+* { -webkit-tap-highlight-color: transparent; }
+input, button { touch-action: manipulation; }
+.die-wrap { touch-action: manipulation; }
+.sc-row { touch-action: manipulation; }
+
 .back {
     position: fixed;
     top: 16px;
@@ -173,7 +179,7 @@ a { color: inherit; text-decoration: none; }
     cursor: pointer;
     transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.die-wrap:hover { transform: translateY(-4px); }
+.die-wrap:hover, .die-wrap:active { transform: translateY(-4px); }
 .die-wrap.held { transform: translateY(-8px); }
 .die-wrap.held .die { box-shadow: 0 8px 25px rgba(78,205,196,0.35), 0 0 0 3px var(--teal); }
 .die-wrap.held .held-badge { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -283,7 +289,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .roll-btn:active:not(:disabled) {
-    transform: translateY(-1px) scale(0.98);
+    transform: translateY(1px) scale(0.96);
 }
 
 .roll-btn:disabled {
@@ -853,12 +859,94 @@ a { color: inherit; text-decoration: none; }
 .lb-btn:hover { background:var(--gold);color:var(--brown); }
 
 /* === RESPONSIVE === */
+
+/* Tablets and smaller */
+@media (max-width: 640px) {
+    .game { padding: 50px 16px 32px; }
+    .header { margin-bottom: 20px; }
+    .header h1 { font-size: 2.4rem; }
+    .roll-btn { padding: 14px 40px; font-size: 1rem; }
+    .sc-row { padding: 13px 16px; }  /* bigger touch targets */
+    .opp-card { min-width: 95px; }
+}
+
+/* Phones */
 @media (max-width: 480px) {
-    .header h1 { font-size: 2.2rem; }
-    .dice-tray { gap: 8px; }
-    .die { width: 56px; height: 56px; padding: 8px; border-radius: 11px; }
+    body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+    .back { top: calc(8px + env(safe-area-inset-top)); font-size: 0.7rem; padding: 6px 10px; }
+    .game { padding: 44px 12px 24px; }
+    .header { margin-bottom: 16px; }
+    .header h1 { font-size: 2rem; }
+    .header .sub { font-size: 0.75rem; }
+
+    /* Status bar: stack score and round, hide dots */
+    .status { padding: 10px 14px; font-size: 0.7rem; gap: 8px; }
+    .status-score { font-size: 0.9rem; }
+    .rounds { display: none; }
+
+    /* Dice: responsive sizing */
+    .dice-tray { gap: 6px; padding: 14px 0; }
+    .die { width: 54px; height: 54px; padding: 7px; border-radius: 10px; }
     .die-key { display: none; }
-    .bonus-card { padding: 28px 24px; max-width: 320px; }
+    .held-badge { font-size: 0.45rem; bottom: -16px; }
+
+    /* Roll button */
+    .roll-btn { padding: 12px 32px; font-size: 0.9rem; }
+    .roll-area { margin-bottom: 20px; }
+
+    /* Hype */
+    .hype { font-size: 1rem; height: 28px; margin-bottom: 8px; }
+
+    /* Tip bar */
+    .tip-bar { font-size: 0.6rem; padding: 8px 12px; }
+
+    /* Scorecard: bigger tap targets, tighter text */
+    .scorecard { border-radius: 12px; }
+    .sc-row { padding: 14px 14px; font-size: 0.82rem; }
+    .sc-name { font-size: 0.82rem; }
+    .sc-val { font-size: 0.82rem; }
+    .sc-section-label { font-size: 0.5rem; padding: 6px 14px; }
+    .sc-header { padding: 10px 14px; }
+
+    /* Opponents */
+    .opponents { gap: 4px; }
+    .opp-card { min-width: 85px; padding: 8px 6px; border-radius: 8px; }
+    .opp-name { font-size: 0.6rem; max-width: 55px; }
+    .opp-total { font-size: 0.65rem; }
+
+    /* Bonus overlay */
+    .bonus-card { padding: 16px 20px; max-width: 300px; border-radius: 16px; }
+    .bonus-title { font-size: 1.2rem; }
+    .bonus-pts { font-size: 1.6rem; }
+    .bonus-desc { font-size: 0.75rem; }
+
+    /* Game over */
+    .game-over { padding: 32px 20px; border-radius: 16px; }
+    .game-over h2 { font-size: 1.6rem; }
+    .game-over .go-score { font-size: 2.5rem; }
+
+    /* Lobby */
+    .lobby-inner { padding: 0 8px; }
+    .lobby-title { font-size: 1.6rem; }
+    .lobby-code { font-size: 1.5rem; }
+
+    /* Wait overlay */
+    .wait-card { padding: 28px 20px; margin: 0 16px; }
+
+    /* Footer */
+    .footer { font-size: 0.55rem; padding: 16px 12px; }
+
+    /* MP bar */
+    .mp-bar { font-size: 0.6rem; padding: 6px 12px; }
+}
+
+/* Very small phones (iPhone SE, etc) */
+@media (max-width: 360px) {
+    .die { width: 46px; height: 46px; padding: 6px; border-radius: 9px; }
+    .dice-tray { gap: 4px; }
+    .header h1 { font-size: 1.7rem; }
+    .roll-btn { padding: 10px 24px; font-size: 0.85rem; }
+    .sc-row { padding: 12px 12px; }
 }
 </style>
 </head>
