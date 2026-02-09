@@ -193,21 +193,43 @@ const MP = (function() {
 
         currentPlayer.current_round = roundNum + 1;
 
-        // Check if all players finished this round
+        // Small delay to let DB propagate, then check
+        await new Promise(r => setTimeout(r, 500));
+
+        await tryAdvanceRound(roundNum);
+
+        return { success: true };
+    }
+
+    // Separated so polling can also call this
+    async function tryAdvanceRound(roundNum) {
+        if (!currentGame) return;
+
+        // Re-fetch fresh player data
         const players = await getPlayers();
         const allDone = players.every(p => p.current_round > roundNum);
 
         if (allDone) {
-            const nextRound = roundNum + 1;
-            if (nextRound > 13) {
-                // Game over
-                await supabase.from('games').update({ status: 'finished', current_round: 14 }).eq('id', currentGame.id);
-            } else {
-                await supabase.from('games').update({ current_round: nextRound }).eq('id', currentGame.id);
+            // Re-fetch game to avoid stale current_round
+            const { data: freshGame } = await supabase
+                .from('games')
+                .select('current_round, status')
+                .eq('id', currentGame.id)
+                .single();
+
+            if (!freshGame) return;
+
+            // Only advance if the game hasn't already been advanced
+            if (freshGame.current_round <= roundNum) {
+                const nextRound = roundNum + 1;
+                if (nextRound > 13) {
+                    await supabase.from('games').update({ status: 'finished', current_round: 14 }).eq('id', currentGame.id);
+                } else {
+                    await supabase.from('games').update({ current_round: nextRound }).eq('id', currentGame.id);
+                }
+                console.log(`[MP] Advanced game to round ${nextRound}`);
             }
         }
-
-        return { allDone };
     }
 
     // === GET GAME STATE (always fresh from DB) ===
@@ -320,6 +342,7 @@ const MP = (function() {
         startGame,
         getPlayers,
         submitRound,
+        tryAdvanceRound,
         getGameState,
         setOnGameUpdate,
         checkExistingGame,

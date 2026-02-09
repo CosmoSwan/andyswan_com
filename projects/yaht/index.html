@@ -3554,6 +3554,13 @@ async function checkRoundSync() {
     // If I've finished my round but the game hasn't advanced yet — show waiting
     if (myRound > game.current_round) {
         showWaiting(players, game.current_round);
+
+        // Safety net: if everyone is done but the game didn't advance (race condition), try to advance it
+        const allDone = players.every(p => p.current_round > game.current_round);
+        if (allDone) {
+            console.log('[MP] Polling detected all done — trying to advance round');
+            await MP.tryAdvanceRound(game.current_round);
+        }
     }
 
     // If the game round caught up to (or passed) my round — I can play! Dismiss waiting.
