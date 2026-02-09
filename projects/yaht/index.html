@@ -666,6 +666,85 @@ a { color: inherit; text-decoration: none; }
 .go-bonus-row .name { color: var(--text-dim); }
 .go-bonus-row .pts { color: var(--gold); font-weight: 500; }
 
+/* === OPPONENTS PANEL === */
+.opponents {
+    margin-top: 16px;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+.opp-card {
+    flex: 1;
+    min-width: 110px;
+    max-width: 160px;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 10px 8px;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+}
+.opp-card.leading { border-color: rgba(212,165,55,0.3); }
+.opp-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.opp-name {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--cream);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 70px;
+}
+.opp-total {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--gold-light);
+}
+.opp-round {
+    font-size: 0.5rem;
+    color: var(--text-faint);
+    text-align: center;
+    margin-bottom: 6px;
+}
+.opp-rows { display: flex; flex-direction: column; gap: 1px; }
+.opp-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 4px;
+    color: var(--text-dim);
+    font-size: 0.55rem;
+    border-radius: 2px;
+}
+.opp-row .opp-cat { color: var(--text-faint); }
+.opp-row .opp-val { color: var(--text-dim); }
+.opp-row.has-score .opp-val { color: var(--cream); }
+.opp-row.is-zero .opp-val { color: var(--red); opacity: 0.6; }
+.opp-row.opp-sep {
+    background: rgba(255,255,255,0.02);
+    font-weight: 600;
+    margin: 2px 0;
+}
+.opp-row.opp-sep .opp-val { color: var(--gold); }
+.opp-status {
+    text-align: center;
+    font-size: 0.5rem;
+    margin-top: 6px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255,255,255,0.04);
+}
+.opp-status.done { color: var(--teal); }
+.opp-status.playing { color: var(--text-faint); }
+
 /* === MODE SELECT === */
 .mode-select {
     position:relative;z-index:5;display:flex;align-items:center;justify-content:center;
@@ -937,6 +1016,9 @@ a { color: inherit; text-decoration: none; }
         <div class="sc-row" data-cat="chance"><span class="sc-name">Chance</span><span class="sc-val" id="v-chance">—</span></div>
         <div class="sc-row sc-sep"><span class="sc-name">Total</span><span class="sc-val" id="v-total">0</span></div>
     </div>
+
+    <!-- Opponent scorecards (multiplayer only) -->
+    <div class="opponents" id="opponents" style="display:none"></div>
 
     <div class="tip-bar" id="tip-bar"></div>
     <div class="high-score" id="high-score-display"></div>
@@ -3143,11 +3225,69 @@ function startMultiplayerGame() {
     reset();
     hype('start');
 
+    // Initial load of opponents
+    checkRoundSync();
+
     // Listen for round updates in-game
     MP.setOnGameUpdate(async (type, payload) => {
         if (type === 'player_change' || type === 'game_change') {
             await checkRoundSync();
         }
+    });
+}
+
+// === OPPONENT SCORECARDS ===
+const CAT_LABELS = {ones:'1s',twos:'2s',threes:'3s',fours:'4s',fives:'5s',sixes:'6s',
+    three:'3K',four:'4K',full:'FH',smstr:'SS',lgstr:'LS',yahtzee:'YOT',chance:'CH'};
+const ALL_CATS = ['ones','twos','threes','fours','fives','sixes','_bonus','three','four','full','smstr','lgstr','yahtzee','chance','_total'];
+
+function renderOpponents(players, gameRound) {
+    const container = document.getElementById('opponents');
+    const myPlayer = MP.getMyPlayer();
+    if (!myPlayer || players.length <= 1) { container.style.display='none'; return; }
+
+    container.style.display = '';
+    const opponents = players.filter(p => p.id !== myPlayer.id).sort((a,b) => b.total_score - a.total_score);
+    const bestScore = Math.max(...players.map(p=>p.total_score));
+
+    container.innerHTML = '';
+    opponents.forEach(opp => {
+        const sc = opp.scores || {};
+        const card = document.createElement('div');
+        card.className = 'opp-card' + (opp.total_score === bestScore && bestScore > 0 ? ' leading' : '');
+
+        // Header
+        let html = `<div class="opp-header"><span class="opp-name">${opp.name}</span><span class="opp-total">$${opp.total_score}</span></div>`;
+        html += `<div class="opp-round">Rd ${Math.min(opp.current_round, 13)}/13</div>`;
+
+        // Rows
+        html += '<div class="opp-rows">';
+        ALL_CATS.forEach(cat => {
+            if (cat === '_bonus') {
+                let upper = 0;
+                ['ones','twos','threes','fours','fives','sixes'].forEach(c => { if(sc[c]!==undefined && sc[c]!==null) upper+=sc[c]; });
+                const bonus = upper >= 63 ? 35 : 0;
+                html += `<div class="opp-row opp-sep"><span class="opp-cat">Bonus</span><span class="opp-val">${bonus>0?'+35':upper+'/63'}</span></div>`;
+                return;
+            }
+            if (cat === '_total') {
+                html += `<div class="opp-row opp-sep"><span class="opp-cat">Total</span><span class="opp-val">$${opp.total_score}</span></div>`;
+                return;
+            }
+            const val = sc[cat];
+            const hasScore = val !== undefined && val !== null;
+            const isZero = hasScore && val === 0;
+            const cls = hasScore ? (isZero ? 'has-score is-zero' : 'has-score') : '';
+            html += `<div class="opp-row ${cls}"><span class="opp-cat">${CAT_LABELS[cat]||cat}</span><span class="opp-val">${hasScore?val:'—'}</span></div>`;
+        });
+        html += '</div>';
+
+        // Status
+        const done = opp.current_round > gameRound;
+        html += `<div class="opp-status ${done?'done':'playing'}">${done?'✓ Done':'Playing...'}</div>`;
+
+        card.innerHTML = html;
+        container.appendChild(card);
     });
 }
 
@@ -3160,6 +3300,9 @@ async function checkRoundSync() {
     const { game, players } = state;
     const myPlayer = MP.getMyPlayer();
     const myRound = myPlayer?.current_round || 1;
+
+    // Update opponents panel
+    renderOpponents(players, game.current_round);
 
     // Update mp bar status
     const done = players.filter(p => p.current_round > game.current_round).length;
@@ -3229,6 +3372,7 @@ document.getElementById('lb-btn-home').addEventListener('click', () => {
     mpLeaderboard.style.display = 'none';
     gameArea.style.display = 'none';
     mpBar.style.display = 'none';
+    document.getElementById('opponents').style.display = 'none';
     modeSelect.style.display = '';
     MP.cleanup();
     mpMode = false;
