@@ -3,28 +3,26 @@
  * Handles offline caching + push notifications
  */
 
-const CACHE_NAME = 'yaht-v1';
-const ASSETS = [
-    '/projects/yaht/',
-    '/projects/yaht/index.html',
-    '/projects/yaht/multiplayer.js',
-    '/projects/yaht/manifest.json',
+const CACHE_NAME = 'yaht-v3';
+const STATIC_ASSETS = [
     '/projects/yaht/bonus-images/dolly.png',
     '/projects/yaht/bonus-images/jlo.png',
     '/projects/yaht/bonus-images/menage.png',
     '/projects/yaht/bonus-images/shawshank.png',
     '/projects/yaht/bonus-images/single-dot-yaht.png',
+    '/projects/yaht/icon-192.png',
+    '/projects/yaht/icon-512.png',
 ];
 
-// Install — cache core assets
+// Install — only cache images (static assets that rarely change)
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
+        caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
     );
     self.skipWaiting();
 });
 
-// Activate — clean old caches
+// Activate — delete ALL old caches immediately
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then(keys =>
@@ -34,22 +32,37 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// Fetch — serve from cache, fall back to network
+// Fetch — NETWORK FIRST for HTML/JS, cache-first only for images
 self.addEventListener('fetch', (event) => {
-    // Don't cache Supabase API calls
+    // Never cache Supabase or CDN calls
     if (event.request.url.includes('supabase.co')) return;
+    if (event.request.url.includes('cdn.jsdelivr.net')) return;
 
+    // Images: cache-first (they don't change)
+    if (event.request.url.match(/\.(png|jpg|jpeg|gif|webp)$/)) {
+        event.respondWith(
+            caches.match(event.request).then(cached => {
+                return cached || fetch(event.request).then(response => {
+                    if (response.status === 200) {
+                        const clone = response.clone();
+                        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+                    }
+                    return response;
+                });
+            })
+        );
+        return;
+    }
+
+    // HTML, JS, CSS: NETWORK FIRST — always get latest, fall back to cache if offline
     event.respondWith(
-        caches.match(event.request).then(cached => {
-            return cached || fetch(event.request).then(response => {
-                // Cache new requests on the fly
-                if (response.status === 200) {
-                    const clone = response.clone();
-                    caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-                }
-                return response;
-            });
-        }).catch(() => caches.match('/projects/yaht/index.html'))
+        fetch(event.request).then(response => {
+            if (response.status === 200) {
+                const clone = response.clone();
+                caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+            }
+            return response;
+        }).catch(() => caches.match(event.request))
     );
 });
 
