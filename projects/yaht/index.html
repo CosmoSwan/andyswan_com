@@ -40,12 +40,21 @@
 
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 
+html {
+    height: 100%;
+    overflow: hidden;
+}
+
 body {
     font-family: var(--sans);
     background: var(--felt-dark);
     color: var(--text);
-    min-height: 100vh;
+    min-height: 100%;
+    height: 100%;
+    overflow-y: auto;
     overflow-x: hidden;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
     background-image:
         radial-gradient(ellipse at 50% 0%, var(--felt-light) 0%, var(--felt) 50%, var(--felt-dark) 100%);
 }
@@ -873,40 +882,42 @@ input, button { touch-action: manipulation; }
 /* Phones */
 @media (max-width: 480px) {
     body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
-    .back { top: calc(8px + env(safe-area-inset-top)); font-size: 0.7rem; padding: 6px 10px; }
-    .game { padding: 44px 12px 24px; }
-    .header { margin-bottom: 16px; }
-    .header h1 { font-size: 2rem; }
-    .header .sub { font-size: 0.75rem; }
+    .back { top: calc(4px + env(safe-area-inset-top)); font-size: 0.65rem; padding: 4px 8px; }
+    .game { padding: 36px 10px 16px; }
+    .header { margin-bottom: 10px; }
+    .header h1 { font-size: 1.8rem; margin-bottom: 0; }
+    .header .sub { font-size: 0.7rem; }
 
-    /* Status bar: stack score and round, hide dots */
-    .status { padding: 10px 14px; font-size: 0.7rem; gap: 8px; }
-    .status-score { font-size: 0.9rem; }
+    /* Status bar: compact, hide dots */
+    .status { padding: 8px 12px; font-size: 0.65rem; gap: 6px; margin-bottom: 8px; }
+    .status-score { font-size: 0.85rem; }
     .rounds { display: none; }
 
-    /* Dice: responsive sizing */
-    .dice-tray { gap: 6px; padding: 14px 0; }
+    /* Dice: responsive sizing, tighter */
+    .dice-tray { gap: 6px; padding: 10px 0; margin-bottom: 4px; }
     .die { width: 54px; height: 54px; padding: 7px; border-radius: 10px; }
     .die-key { display: none; }
-    .held-badge { font-size: 0.45rem; bottom: -16px; }
+    .held-badge { font-size: 0.45rem; bottom: -14px; }
 
     /* Roll button */
-    .roll-btn { padding: 12px 32px; font-size: 0.9rem; }
-    .roll-area { margin-bottom: 20px; }
+    .roll-btn { padding: 10px 28px; font-size: 0.85rem; }
+    .roll-area { margin-bottom: 12px; }
+    .rolls-ind { margin-top: 6px; }
+    .roll-pip { width: 6px; height: 6px; }
 
-    /* Hype */
-    .hype { font-size: 1rem; height: 28px; margin-bottom: 8px; }
+    /* Hype + Tips: compact */
+    .hype { font-size: 0.9rem; height: 24px; margin-bottom: 4px; }
+    .tip-bar { font-size: 0.55rem; padding: 6px 10px; margin-bottom: 4px; }
+    .tip-bar .tip-label { font-size: 0.45rem; margin-bottom: 2px; }
 
-    /* Tip bar */
-    .tip-bar { font-size: 0.6rem; padding: 8px 12px; }
-
-    /* Scorecard: bigger tap targets, tighter text */
-    .scorecard { border-radius: 12px; }
-    .sc-row { padding: 14px 14px; font-size: 0.82rem; }
-    .sc-name { font-size: 0.82rem; }
-    .sc-val { font-size: 0.82rem; }
-    .sc-section-label { font-size: 0.5rem; padding: 6px 14px; }
-    .sc-header { padding: 10px 14px; }
+    /* Scorecard: tight but tappable */
+    .scorecard { border-radius: 10px; }
+    .sc-row { padding: 11px 12px; font-size: 0.78rem; }
+    .sc-name { font-size: 0.78rem; gap: 4px; }
+    .sc-name .sc-icon { font-size: 0.65rem; }
+    .sc-val { font-size: 0.78rem; min-width: 30px; }
+    .sc-section-label { font-size: 0.45rem; padding: 4px 12px; }
+    .sc-header { padding: 8px 12px; font-size: 0.6rem; }
 
     /* Opponents */
     .opponents { gap: 4px; }
@@ -2783,13 +2794,10 @@ function select(cat) {
     // Yahtzee confetti
     if (cat==='yahtzee'&&pts===50) fireConfetti();
 
-    // First Scratch penalty
-    if (pts === 0 && !firstScratchDone) {
+    // First Scratch penalty — in solo, it's your first zero. In MP, skip (handled at game end by comparing).
+    if (pts === 0 && !firstScratchDone && !mpMode) {
         firstScratchDone = true;
-        if (!earnedBonuses.includes('firstScratch')) {
-            earnedBonuses.push('firstScratch');
-            pendingBonuses.push('firstScratch');
-        }
+        addBonus('firstScratch');
     }
 
     // === JAIL SYSTEM ===
@@ -3590,19 +3598,38 @@ function showLeaderboard(players) {
     const container = document.getElementById('lb-list');
     container.innerHTML = '';
 
+    // Calculate net payouts — each loser pays the winner the difference
+    // Dog eat dog: payout = your score - opponent's score (per opponent)
+    const avgScore = sorted.reduce((s,p)=>s+p.total_score,0) / sorted.length;
+
     sorted.forEach((p, i) => {
+        // Net payout: difference vs every other player
+        let net = 0;
+        sorted.forEach(opp => {
+            if (opp.id !== p.id) net += p.total_score - opp.total_score;
+        });
+
+        const isMe = p.id === myPlayer?.id;
         const row = document.createElement('div');
         row.className = 'lb-row' + (i === 0 ? ' winner' : '');
         const medals = ['🥇','🥈','🥉'];
+        const netStr = net >= 0 ? `+$${net}` : `-$${Math.abs(net)}`;
+        const netColor = net >= 0 ? 'color:var(--teal)' : 'color:var(--red)';
         row.innerHTML = `<span class="lb-rank">${medals[i]||i+1}</span>
-            <span class="lb-name">${p.name}${p.id===myPlayer?.id?'<span class="lb-you">(you)</span>':''}</span>
-            <span class="lb-total">$${p.total_score}</span>`;
+            <span class="lb-name">${p.name}${isMe?'<span class="lb-you">(you)</span>':''}</span>
+            <span class="lb-total">$${p.total_score}</span>
+            <span class="lb-net" style="${netColor};font-family:var(--mono);font-size:0.8rem;font-weight:600;min-width:60px;text-align:right">${netStr}</span>`;
         container.appendChild(row);
     });
 
     // Title
     const winner = sorted[0];
-    document.getElementById('lb-title').textContent = winner.id === myPlayer?.id ? 'You Win!' : `${winner.name} Wins!`;
+    const myNet = sorted.reduce((s,p) => p.id===myPlayer?.id ? s : s + ((myPlayer?.total_score||0) - p.total_score), 0);
+    if (winner.id === myPlayer?.id) {
+        document.getElementById('lb-title').textContent = `You Win! Net: +$${myNet}`;
+    } else {
+        document.getElementById('lb-title').textContent = `${winner.name} Wins!`;
+    }
     mpLeaderboard.style.display = '';
 }
 
