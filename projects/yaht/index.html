@@ -2809,10 +2809,11 @@ async function select(cat) {
     // Yahtzee confetti
     if (cat==='yahtzee'&&pts===50) fireConfetti();
 
-    // First Scratch penalty — in solo, it's your first zero. In MP, skip (handled at game end by comparing).
-    if (pts === 0 && !firstScratchDone && !mpMode) {
+    // First Scratch penalty — MP only (first player to scratch loses $10)
+    if (pts === 0 && !firstScratchDone && mpMode) {
         firstScratchDone = true;
-        addBonus('firstScratch');
+        // Check if an opponent already scratched first
+        if (!(await oppHasBonus('firstScratch'))) addBonus('firstScratch');
     }
 
     // === JAIL SYSTEM ===
