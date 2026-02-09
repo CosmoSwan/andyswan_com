@@ -2720,10 +2720,15 @@ function getBonusTotal() {
 const bonusOverlay = document.getElementById('bonus-overlay');
 const bonusDismiss = document.getElementById('bonus-dismiss');
 
+let _bonusDismissHandler = null;
+
 function showNextBonus(callback) {
     if (pendingBonuses.length === 0) { if (callback) callback(); return; }
     const key = pendingBonuses.shift();
     const b = BONUS_DEFS[key];
+    if (!b) { showNextBonus(callback); return; } // skip unknown keys
+
+    console.log('[BONUS] Showing:', key, '| Remaining:', pendingBonuses.length);
 
     // Start full-screen canvas animation
     stopBonusAnim();
@@ -2745,16 +2750,24 @@ function showNextBonus(callback) {
         ptsEl.style.color = '';
     }
 
+    // Show count if multiple pending
+    const remaining = pendingBonuses.length;
+    bonusDismiss.textContent = remaining > 0 ? `Nice! (${remaining} more)` : 'Nice!';
+
     bonusOverlay.classList.add('show');
     if (!b.isPenalty) fireConfetti();
 
-    const dismiss = () => {
+    // Remove any stale handler before adding new one
+    if (_bonusDismissHandler) bonusDismiss.removeEventListener('click', _bonusDismissHandler);
+
+    _bonusDismissHandler = () => {
         bonusOverlay.classList.remove('show');
         stopBonusAnim();
-        bonusDismiss.removeEventListener('click', dismiss);
+        bonusDismiss.removeEventListener('click', _bonusDismissHandler);
+        _bonusDismissHandler = null;
         setTimeout(() => showNextBonus(callback), 300);
     };
-    bonusDismiss.addEventListener('click', dismiss);
+    bonusDismiss.addEventListener('click', _bonusDismissHandler);
 }
 
 // === SELECT CATEGORY ===
