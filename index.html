@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Andy Swan</title>
+    <meta name="description" content="Andy Swan — Creator of LikeFolio, builder, operator. AI and fintech.">
+    <meta property="og:title" content="Andy Swan">
+    <meta property="og:description" content="Creator of LikeFolio. Builder. Operator.">
+    <meta property="og:type" content="website">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+</head>
+<body>
+    <!-- Three.js Canvas -->
+    <div id="scene-container"></div>
+
+    <!-- Grain overlay -->
+    <div class="grain"></div>
+
+    <!-- Navigation -->
+    <nav class="nav" id="nav">
+        <a href="#" class="nav-wordmark">AS</a>
+        <div class="nav-links">
+            <a href="#lab">Lab</a>
+            <a href="#terminal">Terminal</a>
+            <a href="https://x.com/andyswan" target="_blank">𝕏</a>
+            <a href="#connect">Connect</a>
+        </div>
+        <button class="nav-toggle" id="nav-toggle" aria-label="Menu">
+            <span></span><span></span>
+        </button>
+    </nav>
+
+    <!-- Mobile overlay -->
+    <div class="mobile-nav" id="mobile-nav">
+        <a href="#lab">Lab</a>
+        <a href="#terminal">Terminal</a>
+        <a href="#connect">Connect</a>
+    </div>
+
+    <!-- ====== HERO ====== -->
+    <section class="hero" id="hero">
+        <div class="hero-inner">
+            <p class="hero-pre">Founder / Builder / Operator</p>
+            <h1 class="hero-name">
+                <span class="hero-line">Andy</span>
+                <span class="hero-line">Swan</span>
+            </h1>
+            <p class="hero-sub" id="hero-sub"></p>
+        </div>
+        <div class="hero-scroll">
+            <div class="hero-scroll-line"></div>
+        </div>
+    </section>
+
+    <!-- ====== MARQUEE ====== -->
+    <div class="marquee" aria-hidden="true">
+        <div class="marquee-track">
+            <span>Creator of LikeFolio</span>
+            <span>Board — Contio.ai</span>
+            <span>Fast Company Most Innovative</span>
+            <span>Featured on CNBC</span>
+            <span class="btc-accent">₿itcoin Maxi</span>
+            <span>Yahoo Finance</span>
+            <span>Barron's</span>
+            <span>Former Board — Riskalyze</span>
+            <span>Two Exits</span>
+            <span>25+ Years Shipping</span>
+            <span>AI-Native Builder</span>
+            <!-- duplicate for seamless loop -->
+            <span>Creator of LikeFolio</span>
+            <span>Board — Contio.ai</span>
+            <span>Fast Company Most Innovative</span>
+            <span>Featured on CNBC</span>
+            <span class="btc-accent">₿itcoin Maxi</span>
+            <span>Yahoo Finance</span>
+            <span>Barron's</span>
+            <span>Former Board — Riskalyze</span>
+            <span>Two Exits</span>
+            <span>25+ Years Shipping</span>
+            <span>AI-Native Builder</span>
+        </div>
+    </div>
+
+    <!-- ====== RESUME STRIP ====== -->
+    <section class="resume" id="work">
+        <div class="resume-inner">
+            <a href="https://likefolio.com" target="_blank" class="resume-item reveal-up">
+                <span class="resume-role">Creator & Founder</span>
+                <span class="resume-company">LikeFolio</span>
+                <span class="resume-detail">Consumer signals → investment alpha. Fast Company Most Innovative.</span>
+                <span class="resume-arrow">→</span>
+            </a>
+            <a href="https://contio.ai" target="_blank" class="resume-item reveal-up">
+                <span class="resume-role">Board</span>
+                <span class="resume-company">Contio.ai</span>
+                <span class="resume-detail">AI-powered meeting OS. Founded by Aaron Klein (Riskalyze).</span>
+                <span class="resume-arrow">→</span>
+            </a>
+            <div class="resume-item reveal-up">
+                <span class="resume-role">Board (6 yrs)</span>
+                <span class="resume-company">Riskalyze</span>
+                <span class="resume-detail">Risk alignment platform for financial advisors. Now Nitrogen.</span>
+            </div>
+            <div class="resume-item reveal-up">
+                <span class="resume-role">Founder</span>
+                <span class="resume-company">Two Exits</span>
+                <span class="resume-detail">Built and sold two companies in finance.</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ====== LAB / PROJECTS ====== -->
+    <section class="section section-dark" id="lab">
+        <div class="section-inner">
+            <div class="lab-header">
+                <div>
+                    <div class="section-label">Lab</div>
+                    <p class="lab-intro">I build things every week. New projects drop regularly.<br>If it's interesting, I'll ship it.</p>
+                </div>
+            </div>
+
+            <div class="lab-list">
+                <a href="projects/yahtzeeeee/" class="lab-item reveal-up">
+                    <span class="lab-item-num">01</span>
+                    <span class="lab-item-name">Yahtzeeeee!</span>
+                    <span class="lab-item-desc">Classic dice game, rebuilt from scratch. Pure JS, all fun.</span>
+                    <span class="lab-item-tag live">Live</span>
+                    <span class="lab-item-arrow">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
+                    </span>
+                </a>
+
+                <a href="projects/market-pulse/" class="lab-item reveal-up">
+                    <span class="lab-item-num">02</span>
+                    <span class="lab-item-name">Market Pulse</span>
+                    <span class="lab-item-desc">Real-time market sentiment. AI + social feeds + data viz.</span>
+                    <span class="lab-item-tag live">Live</span>
+                    <span class="lab-item-arrow">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
+                    </span>
+                </a>
+
+                <!-- ADD NEW PROJECTS HERE — just copy a lab-item block -->
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ====== TERMINAL ====== -->
+    <section class="section" id="terminal">
+        <div class="section-inner">
+            <div class="section-label">Terminal</div>
+            <p class="section-desc">Don't read a bio. Explore one. Type <code>help</code> to start.</p>
+
+            <div class="terminal" id="terminal-window">
+                <div class="terminal-bar">
+                    <div class="terminal-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <div class="terminal-title">andy@swan ~ </div>
+                </div>
+                <div class="terminal-body" id="terminal-body">
+                    <div id="terminal-output"></div>
+                    <div class="terminal-input-row">
+                        <span class="prompt">→</span>
+                        <input type="text" id="terminal-input" autocomplete="off" spellcheck="false" placeholder="type a command...">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ====== X FEED / CONNECT ====== -->
+    <section class="section section-dark" id="connect">
+        <div class="section-inner">
+            <div class="connect-layout">
+                <!-- X Featured -->
+                <div class="x-featured reveal-up">
+                    <div class="section-label">The Feed</div>
+                    <p class="x-intro">Hot takes on AI, fintech, building, and the chaos in between. This is where the real-time thinking happens.</p>
+                    <a href="https://x.com/andyswan" target="_blank" class="x-follow-btn">
+                        <span class="x-logo">𝕏</span>
+                        <span>Follow @andyswan</span>
+                    </a>
+                    <div class="x-embed">
+                        <a class="twitter-timeline"
+                           data-theme="dark"
+                           data-chrome="noheader nofooter noborders transparent"
+                           data-tweet-limit="3"
+                           href="https://twitter.com/andyswan">
+                        </a>
+                    </div>
+                </div>
+                <!-- Other Links -->
+                <div class="connect-side reveal-up">
+                    <div class="section-label">Connect</div>
+                    <div class="connect-links-stacked">
+                        <a href="https://linkedin.com/in/andyswan" target="_blank" class="connect-link-row">
+                            <span class="connect-link-label">LinkedIn</span>
+                            <span class="connect-link-handle">andyswan →</span>
+                        </a>
+                        <a href="https://github.com/andyswan" target="_blank" class="connect-link-row">
+                            <span class="connect-link-label">GitHub</span>
+                            <span class="connect-link-handle">andyswan →</span>
+                        </a>
+                        <a href="mailto:andy@andyswan.com" class="connect-link-row">
+                            <span class="connect-link-label">Email</span>
+                            <span class="connect-link-handle">andy@andyswan.com →</span>
+                        </a>
+                    </div>
+                    <p class="connect-cta">Building something ambitious?<br>Let's talk.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    <script async src="https://platform.twitter.com/widgets.js"></script>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <span>Andy Swan — <span id="year">2026</span></span>
+        <span>Built with caffeine, Cursor, and unreasonable ambition</span>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="js/scene.js"></script>
+    <script src="js/terminal.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
