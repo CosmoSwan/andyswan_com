@@ -115,6 +115,9 @@ a { color: inherit; text-decoration: none; }
 }
 .status-score { color: var(--gold-light); font-weight: 500; font-size: 1rem; }
 .status-round { color: var(--text-dim); }
+.jail-badge { display:none; font-size:0.65rem; background:rgba(231,76,94,0.15); color:var(--red); padding:3px 10px; border-radius:20px; font-family:var(--mono); letter-spacing:0.08em; }
+.jail-badge.active { display:inline-block; animation: jail-pulse 1s ease-in-out infinite alternate; }
+@keyframes jail-pulse { 0%{opacity:0.7} 100%{opacity:1} }
 
 /* Round progress dots */
 .rounds {
@@ -699,6 +702,7 @@ a { color: inherit; text-decoration: none; }
 
     <div class="status">
         <div class="status-score" id="total-display">$0</div>
+        <span class="jail-badge" id="jail-badge">🔒 JAIL</span>
         <div class="rounds" id="round-dots"></div>
         <div class="status-round">Round <span id="round-num">1</span>/13</div>
     </div>
@@ -813,9 +817,17 @@ let round = 1;
 let scores = {};
 let rolled = false;
 let highScore = parseInt(localStorage.getItem('yahtzee-high') || '0');
-let yahtzeeCount = 0; // track total 5-of-a-kinds rolled
-let earnedBonuses = []; // bonuses earned this game
-let pendingBonuses = []; // queue of bonuses to show
+let yahtzeeCount = 0;       // total 5-of-a-kinds rolled in game
+let earnedBonuses = [];      // bonuses earned this game
+let pendingBonuses = [];     // queue of bonuses to show
+let jokerActive = false;     // true when current dice are a joker (YOT already scored non-zero + rolled another)
+let jokerBonusPoints = 0;    // accumulated +100 joker bonuses
+let rollsThisTurn = 0;       // how many rolls used this turn (for single-roll bonuses)
+let heldBeforeLastRoll = [false,false,false,false,false]; // for SS YOT detection
+let inJail = false;          // jail status
+let jailTurns = 0;           // turns spent in jail
+let jailPenalty = 0;         // accumulated jail penalty dollars
+let firstScratchDone = false; // track if first scratch penalty already applied
 
 const UPPER = ['ones','twos','threes','fours','fives','sixes'];
 const LOWER = ['three','four','full','smstr','lgstr','yahtzee','chance'];
@@ -837,8 +849,27 @@ const ctx = confettiCanvas.getContext('2d');
 function cnt(d) { const c=[0,0,0,0,0,0,0]; d.forEach(v=>c[v]++); return c; }
 function sum(d) { return d.reduce((a,b)=>a+b,0); }
 
-function calc(cat, d) {
+function calc(cat, d, isJoker) {
     const c = cnt(d), s = sum(d), mx = Math.max(...c.slice(1));
+    // Joker override: straights and full house score full points
+    if (isJoker) {
+        switch(cat) {
+            case 'ones': return c[1]*1;
+            case 'twos': return c[2]*2;
+            case 'threes': return c[3]*3;
+            case 'fours': return c[4]*4;
+            case 'fives': return c[5]*5;
+            case 'sixes': return c[6]*6;
+            case 'three': return s;
+            case 'four': return s;
+            case 'full': return 25;
+            case 'smstr': return 30;
+            case 'lgstr': return 40;
+            case 'yahtzee': return mx===5?50:0;
+            case 'chance': return s;
+            default: return 0;
+        }
+    }
     switch(cat) {
         case 'ones': return c[1]*1;
         case 'twos': return c[2]*2;
@@ -848,7 +879,7 @@ function calc(cat, d) {
         case 'sixes': return c[6]*6;
         case 'three': return mx>=3?s:0;
         case 'four': return mx>=4?s:0;
-        case 'full': return (c.slice(1).includes(3)&&c.slice(1).includes(2))?25:0;
+        case 'full': return (mx===5||(c.slice(1).includes(3)&&c.slice(1).includes(2)))?25:0;
         case 'smstr': {
             const u=[...new Set(d)].sort().join('');
             return (u.includes('1234')||u.includes('2345')||u.includes('3456'))?30:0;
@@ -869,26 +900,35 @@ function getTotal() {
     const bonus=upper>=63?35:0;
     let base=bonus;
     Object.values(scores).forEach(v=>base+=v);
+    base += jokerBonusPoints;
     const bonusPts = getBonusTotal();
-    return {upper, bonus, total: base + bonusPts, base};
+    return {upper, bonus, total: base + bonusPts - jailPenalty, base: base - jailPenalty};
 }
 
 // === HYPE MESSAGES ===
+const YOT_NAMES = { 1:'Single Dot Yot! ⚀', 2:'Duck Yot! 🦆', 3:'Bird Yot! 🐦', 4:'Box Yot! 📦', 5:'Fiver! ✋', 6:'Dot Yot! ⚅' };
+
 const HYPES = {
     yahtzee: ['🎲 YAHTZEEEEE!!!', '💥 ABSOLUTE LEGEND!', '🔥 FIFTY POINTS!', '🏆 PERFECTION!'],
+    joker: ['🃏 JOKER! +$100! Pick ANY row!', '🃏 WILD CARD! +$100 bonus!', '🃏 JOKER ACTIVATED! +$100!'],
     four: ['Four of a kind! 🔥', 'QUAD DAMAGE!', 'So close to Yahtzee...'],
     three: ['Trips! Nice.', 'Three of a kind 👌'],
     full: ['Full House! 🏠', 'Boats & floats!'],
+    dreamboat: ['🚢 DREAM BOAT! Full House 1s & 2s!'],
     lgstr: ['Large Straight! 🎯', 'FIVE IN A ROW!'],
     smstr: ['Small Straight 🎯', 'Four in a row!'],
+    paigrow: ['Pai Gow! 🀄 Sequential with a gap...'],
+    rerack: ['RERACK! 🔄 All five rerolled!'],
+    ssyot: ['SS YOT! 🎲 Held 2, rolled the rest!'],
     bad: ['Oof. 😬', 'Rough roll.', 'We\'ve all been there.', 'Pain.', 'The dice gods are cruel.'],
     good: ['Not bad!', 'Working with something!', 'Options! 💰'],
     start: ['Let\'s go! 🎲', 'Roll \'em!', 'Feeling lucky?'],
+    jailwarn: ['⚠️ Careful on Turn 1 — weak play = Jail!'],
 };
 
 function hype(key) {
     const list = HYPES[key];
-    if (!list) return;
+    if (!list) { hypeEl.textContent=key; hypeEl.classList.remove('show'); void hypeEl.offsetWidth; hypeEl.classList.add('show'); clearTimeout(hypeEl._t); hypeEl._t=setTimeout(()=>hypeEl.classList.remove('show'),2500); return; }
     const msg = list[Math.floor(Math.random()*list.length)];
     hypeEl.textContent = msg;
     hypeEl.classList.remove('show');
@@ -900,17 +940,56 @@ function hype(key) {
 
 function analyzeRoll() {
     const c = cnt(dice), mx = Math.max(...c.slice(1));
+    const u=[...new Set(dice)].sort().join('');
+
+    // YOT — with named variant
     if (mx===5) {
-        hype('yahtzee');
+        const val = dice[0];
+        const name = YOT_NAMES[val] || 'YAHTZEEEEE!!!';
+        hype(name);
         fireConfetti();
+
+        // SS YOT detection: held exactly 2, then completed YOT on reroll
+        const heldCount = heldBeforeLastRoll.filter(h=>h).length;
+        if (heldCount === 2 && rollsThisTurn > 1) {
+            setTimeout(()=>hype('ssyot'), 1500);
+        }
         return;
     }
+
+    // Rerack: rerolled all 5 (none held)
+    const noneHeld = heldBeforeLastRoll.every(h=>!h);
+    if (noneHeld && rollsThisTurn > 1) {
+        // Don't show rerack if there's something more interesting
+    }
+
     if (mx===4) return hype('four');
-    const u=[...new Set(dice)].sort().join('');
+
+    // Large Straight
     if (u==='12345'||u==='23456') return hype('lgstr');
+    // Small Straight
     if (u.includes('1234')||u.includes('2345')||u.includes('3456')) return hype('smstr');
-    if (c.slice(1).includes(3)&&c.slice(1).includes(2)) return hype('full');
+
+    // Pai Gow: sequential with a gap (e.g. 1,2,3,5,6 or 1,2,4,5,6)
+    const sorted=[...new Set(dice)].sort((a,b)=>a-b);
+    if (sorted.length===5) {
+        const span = sorted[4]-sorted[0];
+        if (span===5) { hype('paigrow'); return; }
+    }
+
+    // Full House
+    if (c.slice(1).includes(3)&&c.slice(1).includes(2)) {
+        // Dream Boat: full house with all 1s and 2s
+        const vals=new Set(dice);
+        if (vals.size===2 && vals.has(1) && vals.has(2)) return hype('dreamboat');
+        return hype('full');
+    }
+
     if (mx>=3) return hype('three');
+
+    // Rerack hype (only if nothing more interesting)
+    if (noneHeld && rollsThisTurn > 1) return hype('rerack');
+
     if (sum(dice)<=12) return hype('bad');
     hype('good');
 }
@@ -918,10 +997,26 @@ function analyzeRoll() {
 // === ROLL ===
 function roll() {
     if (rollsLeft<=0) return;
+
+    // Track held state before roll for SS YOT detection
+    heldBeforeLastRoll = [...held];
+
     rolled=true;
     rollsLeft--;
+    rollsThisTurn++;
 
     dice=dice.map((d,i)=>held[i]?d:Math.floor(Math.random()*6)+1);
+
+    // Check for joker: rolled 5-of-a-kind and YOT already scored non-zero
+    const mx = Math.max(...cnt(dice).slice(1));
+    if (mx === 5 && scores.yahtzee !== undefined && scores.yahtzee > 0) {
+        jokerActive = true;
+        jokerBonusPoints += 100;
+        hype('joker');
+        fireConfetti();
+    } else {
+        jokerActive = false;
+    }
 
     // Animate dice with random intermediate faces
     dies.forEach((el,i)=>{
@@ -936,7 +1031,7 @@ function roll() {
         }
     });
 
-    setTimeout(()=>analyzeRoll(),500);
+    setTimeout(()=>{ if(!jokerActive) analyzeRoll(); },500);
     updateUI();
 }
 
@@ -949,13 +1044,29 @@ function hold(i) {
 
 // === BONUS DEFINITIONS ===
 const BONUS_DEFS = {
-    dolly:         { name:'The Full Dolly',   emoji:'🎀', desc:'Filled the ENTIRE top (with bonus!) before touching the bottom. Dolly would be proud.', pts:30 },
-    jlo:           { name:'The J-Lo',         emoji:'🍑', desc:'Filled the ENTIRE bottom with nothing up top. That\'s a legendary bottom.', pts:30 },
-    menage:        { name:'The Ménage',       emoji:'💋', desc:'Exactly three of everything up top. A perfect ménage à trois across the board.', pts:25 },
-    singledot:     { name:'Single Dot Yaht',  emoji:'🏇', desc:'Yahtzee on ONES! Five little dots cross the finish line!', pts:50 },
-    doubleyahtzee: { name:'Double Yahtzee',   emoji:'🎉', desc:'TWO Yahtzees in one game?! You absolute animal.', pts:100 },
-    cleancard:     { name:'Clean Card',       emoji:'✨', desc:'Not a single zero on the scorecard. Spotless. Immaculate.', pts:50 },
-    threeHundred:  { name:'300 Club',         emoji:'🚀', desc:'Three hundred plus! You are operating at an elite level.', pts:100 },
+    // Existing (adjusted to $10/ASTI)
+    dolly:         { name:'The Full Dolly',   emoji:'🎀', desc:'Filled the ENTIRE top (with bonus!) before touching the bottom. Dolly would be proud.', pts:20 },
+    jlo:           { name:'The J-Lo',         emoji:'🍑', desc:'Filled the ENTIRE bottom with nothing up top. That\'s a legendary bottom.', pts:20 },
+    menage:        { name:'The Ménage',       emoji:'💋', desc:'Exactly three of everything up top. A perfect ménage à trois across the board.', pts:30 },
+    singledot:     { name:'Single Dot Yot',   emoji:'🏇', desc:'Yahtzee on ONES! Five single dots cross the finish line!', pts:50 },
+    cleancard:     { name:'Clean Card',       emoji:'✨', desc:'Not a single zero on the scorecard. Spotless. Immaculate.', pts:30 },
+    threeHundred:  { name:'300 Club',         emoji:'🚀', desc:'Three hundred plus! You are operating at an elite level.', pts:20 },
+    fourHundred:   { name:'400 Club',         emoji:'🚀', desc:'Four hundred! Now we\'re cooking.', pts:40 },
+    fiveHundred:   { name:'500 Club',         emoji:'🚀', desc:'Five hundred. Absolutely dominant.', pts:60 },
+    sixHundred:    { name:'600 Club',         emoji:'🚀', desc:'SIX HUNDRED. Hall of fame.', pts:80 },
+    // New bonuses
+    iceBreaker:    { name:'Ice Breaker',      emoji:'🧊', desc:'First YOT of the game! The ice is broken.', pts:10 },
+    cherryPopper:  { name:'Cherry Popper',    emoji:'🍒', desc:'YOT on the very first roll of the game. No rerolls. Incredible.', pts:30 },
+    singleRollYot: { name:'Single Roll YOT',  emoji:'🎯', desc:'Five of a kind with NO rerolls. Pure luck, pure skill.', pts:30 },
+    singleRollStr: { name:'Single Roll Straight', emoji:'🎯', desc:'Large Straight on the first roll. No rerolls needed.', pts:10 },
+    firstSixes:    { name:'First Sixes',      emoji:'6️⃣', desc:'Scored 3 or more sixes in the Sixes row. Heavy hitter.', pts:10 },
+    lastCall:      { name:'Last Call',        emoji:'🔔', desc:'YOT on the final turn with the row still open. Clutch!', pts:30 },
+    // Jail/Shawshank
+    jail:          { name:'IN JAIL',          emoji:'🔒', desc:'Weak first turn! You\'re locked up. -$10 per turn until you score a lower section or 3+ in upper.', pts:0, isPenalty:true },
+    shawshank:     { name:'SHAWSHANK',        emoji:'🔓', desc:'Rolled a YOT while in jail! You broke free!', pts:30 },
+    // Penalties
+    firstScratch:  { name:'First Scratch',    emoji:'😬', desc:'First zero on the scorecard. Ouch.', pts:-10, isPenalty:true },
+    under200:      { name:'Under 200',        emoji:'📉', desc:'Total score under 200. Rough game.', pts:-20, isPenalty:true },
 };
 
 // ========================================================
@@ -1510,6 +1621,188 @@ function animThreeHundred() {
     draw();
 }
 
+// ===================== 8. JAIL — Iron bars =====================
+function animJail() {
+    sizeBonusCanvas();
+    const W=bonusCanvas.width,H=bonusCanvas.height;
+    let t=0;
+    function draw(){
+        bCtx.clearRect(0,0,W,H);
+        t+=0.016;
+        // Dark background with red tint
+        bCtx.fillStyle=`rgba(40,0,0,${Math.min(t*0.5,0.3)})`;
+        bCtx.fillRect(0,0,W,H);
+        // Iron bars dropping from top
+        const barCount=8;
+        const barW=W*0.02;
+        for(let i=0;i<barCount;i++){
+            const x=W*0.1+i*(W*0.8/(barCount-1))-barW/2;
+            const dropProgress=Math.min(1,t*1.5-i*0.08);
+            if(dropProgress<=0) continue;
+            const ease=1-Math.pow(1-dropProgress,3);
+            const barH=H*ease;
+            // Bar shadow
+            bCtx.fillStyle='rgba(0,0,0,0.3)';
+            bCtx.fillRect(x+4,0,barW,barH);
+            // Bar
+            const g=bCtx.createLinearGradient(x,0,x+barW,0);
+            g.addColorStop(0,'#555');g.addColorStop(0.3,'#999');g.addColorStop(0.5,'#bbb');g.addColorStop(0.7,'#999');g.addColorStop(1,'#555');
+            bCtx.fillStyle=g;
+            bCtx.fillRect(x,0,barW,barH);
+            // Highlight
+            bCtx.fillStyle='rgba(255,255,255,0.15)';
+            bCtx.fillRect(x+barW*0.3,0,barW*0.2,barH);
+        }
+        // Cross bars
+        if(t>0.8){
+            const a=Math.min(1,(t-0.8)*2);
+            bCtx.globalAlpha=a;
+            for(let y of [H*0.2,H*0.5,H*0.8]){
+                const g2=bCtx.createLinearGradient(0,y,0,y+barW);
+                g2.addColorStop(0,'#666');g2.addColorStop(0.5,'#aaa');g2.addColorStop(1,'#666');
+                bCtx.fillStyle=g2;
+                bCtx.fillRect(W*0.08,y,W*0.84,barW*0.7);
+            }
+            bCtx.globalAlpha=1;
+        }
+        bonusAnimId=requestAnimationFrame(draw);
+    }
+    draw();
+}
+
+// ===================== 9. SHAWSHANK — Bars breaking =====================
+function animShawshank() {
+    sizeBonusCanvas();
+    const W=bonusCanvas.width,H=bonusCanvas.height;
+    const pieces=[];
+    let t=0,exploded=false;
+    function draw(){
+        bCtx.clearRect(0,0,W,H);
+        t+=0.016;
+        if(!exploded && t>0.5){
+            exploded=true;
+            // Shatter bars into pieces
+            for(let i=0;i<60;i++){
+                pieces.push({x:W*0.1+Math.random()*W*0.8,y:Math.random()*H,
+                    vx:rng(-8,8),vy:rng(-10,5),w:rng(8,20),h:rng(15,40),
+                    rot:0,rv:rng(-5,5),life:1,color:`hsl(${rng(35,55)},${rng(5,15)}%,${rng(50,75)}%)`});
+            }
+            // Golden light particles
+            for(let i=0;i<80;i++){
+                pieces.push({x:W/2,y:H/2,vx:rng(-6,6),vy:rng(-6,6),
+                    w:rng(2,5),h:0,rot:0,rv:0,life:1,isLight:true,
+                    color:`rgba(255,215,0,${rng(0.5,1)})`});
+            }
+        }
+        if(!exploded){
+            // Show bars pre-explosion
+            bCtx.fillStyle='rgba(40,0,0,0.2)';bCtx.fillRect(0,0,W,H);
+            const barCount=8,barW=W*0.02;
+            for(let i=0;i<barCount;i++){
+                const x=W*0.1+i*(W*0.8/(barCount-1))-barW/2;
+                const shake=Math.sin(t*30+i)*3*Math.min(t*2,1);
+                bCtx.fillStyle='#888';bCtx.fillRect(x+shake,0,barW,H);
+            }
+        }
+        // Pieces flying
+        pieces.forEach(p=>{
+            p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.rot+=p.rv;p.life-=0.01;
+            if(p.life>0){
+                bCtx.save();bCtx.translate(p.x,p.y);bCtx.rotate(p.rot*Math.PI/180);
+                bCtx.globalAlpha=Math.max(0,p.life);
+                bCtx.fillStyle=p.color;
+                if(p.isLight){bCtx.beginPath();bCtx.arc(0,0,p.w,0,Math.PI*2);bCtx.fill();}
+                else bCtx.fillRect(-p.w/2,-p.h/2,p.w,p.h);
+                bCtx.globalAlpha=1;bCtx.restore();
+            }
+        });
+        // Golden flash
+        if(exploded && t<1.5){
+            const flash=Math.max(0,1-(t-0.5)*2)*0.3;
+            bCtx.fillStyle=`rgba(255,215,0,${flash})`;bCtx.fillRect(0,0,W,H);
+        }
+        bonusAnimId=requestAnimationFrame(draw);
+    }
+    draw();
+}
+
+// ===================== 10. CHERRY POPPER — Champagne =====================
+function animCherryPopper() {
+    sizeBonusCanvas();
+    const W=bonusCanvas.width,H=bonusCanvas.height,cx=W/2;
+    const bubbles=[],sparks=[];
+    let t=0,popped=false;
+    function draw(){
+        bCtx.fillStyle='rgba(0,0,0,0.06)';bCtx.fillRect(0,0,W,H);
+        t+=0.016;
+        if(!popped && t>0.3){
+            popped=true;
+            for(let i=0;i<100;i++){
+                const a=rng(-Math.PI*0.8,-Math.PI*0.2);
+                sparks.push({x:cx,y:H*0.4,vx:Math.cos(a)*rng(3,12),vy:Math.sin(a)*rng(3,12),
+                    life:1,s:rng(2,5),color:`hsl(${rng(40,60)},90%,${rng(55,80)}%)`});
+            }
+        }
+        // Champagne bottle silhouette
+        bCtx.fillStyle='#1a3a1a';
+        bCtx.beginPath();
+        bCtx.moveTo(cx-15,H);bCtx.lineTo(cx-15,H*0.5);bCtx.lineTo(cx-8,H*0.4);
+        bCtx.lineTo(cx-8,H*0.35);bCtx.lineTo(cx+8,H*0.35);bCtx.lineTo(cx+8,H*0.4);
+        bCtx.lineTo(cx+15,H*0.5);bCtx.lineTo(cx+15,H);bCtx.closePath();bCtx.fill();
+        // Label
+        bCtx.fillStyle='#d4a537';bCtx.fillRect(cx-14,H*0.55,28,H*0.12);
+        // Spray sparks
+        sparks.forEach(p=>{
+            p.x+=p.vx;p.y+=p.vy;p.vy+=0.1;p.life-=0.012;
+            if(p.life>0){bCtx.beginPath();bCtx.arc(p.x,p.y,p.s*p.life,0,Math.PI*2);
+                bCtx.fillStyle=p.color;bCtx.globalAlpha=p.life;bCtx.fill();bCtx.globalAlpha=1;}
+        });
+        // Bubbles rising
+        if(popped && Math.random()<0.3){
+            bubbles.push({x:cx+rng(-30,30),y:H*0.4,vy:rng(-2,-5),s:rng(2,6),life:1});
+        }
+        bubbles.forEach(b=>{
+            b.y+=b.vy;b.x+=Math.sin(t*3+b.x)*0.5;b.life-=0.008;
+            if(b.life>0){bCtx.beginPath();bCtx.arc(b.x,b.y,b.s,0,Math.PI*2);
+                bCtx.strokeStyle=`rgba(255,215,0,${b.life*0.5})`;bCtx.lineWidth=1;bCtx.stroke();}
+        });
+        for(let i=sparks.length-1;i>=0;i--) if(sparks[i].life<=0) sparks.splice(i,1);
+        for(let i=bubbles.length-1;i>=0;i--) if(bubbles[i].life<=0) bubbles.splice(i,1);
+        bonusAnimId=requestAnimationFrame(draw);
+    }
+    draw();
+}
+
+// ===================== 11. PENALTY — Red flash =====================
+function animPenalty() {
+    sizeBonusCanvas();
+    const W=bonusCanvas.width,H=bonusCanvas.height;
+    let t=0;
+    function draw(){
+        bCtx.clearRect(0,0,W,H);
+        t+=0.016;
+        // Pulsing red
+        const pulse=Math.sin(t*4)*0.15+0.15;
+        bCtx.fillStyle=`rgba(200,20,20,${pulse})`;
+        bCtx.fillRect(0,0,W,H);
+        // Downward arrows
+        const arrowCount=5;
+        for(let i=0;i<arrowCount;i++){
+            const x=W*0.15+i*(W*0.7/(arrowCount-1));
+            const yOff=(t*80+i*60)%H;
+            bCtx.save();bCtx.translate(x,yOff);
+            bCtx.globalAlpha=0.15+Math.sin(t*3+i)*0.1;
+            bCtx.fillStyle='#ff3333';
+            bCtx.beginPath();bCtx.moveTo(0,20);bCtx.lineTo(-15,-10);bCtx.lineTo(-6,-10);
+            bCtx.lineTo(-6,-30);bCtx.lineTo(6,-30);bCtx.lineTo(6,-10);bCtx.lineTo(15,-10);
+            bCtx.closePath();bCtx.fill();
+            bCtx.globalAlpha=1;bCtx.restore();
+        }
+        bonusAnimId=requestAnimationFrame(draw);
+    }
+    draw();
+}
+
 const BonusAnims = {
     dolly: animDolly,
     jlo: animJlo,
@@ -1518,57 +1811,72 @@ const BonusAnims = {
     doubleyahtzee: animDoubleyahtzee,
     cleancard: animCleancard,
     threeHundred: animThreeHundred,
+    fourHundred: animThreeHundred,
+    fiveHundred: animThreeHundred,
+    sixHundred: animThreeHundred,
+    jail: animJail,
+    shawshank: animShawshank,
+    cherryPopper: animCherryPopper,
+    iceBreaker: animCherryPopper,
+    singleRollYot: animDoubleyahtzee,
+    singleRollStr: animCleancard,
+    firstSixes: animCherryPopper,
+    lastCall: animDoubleyahtzee,
+    firstScratch: animPenalty,
+    under200: animPenalty,
 };
 
 // === CHECK BONUSES ===
+function addBonus(key) {
+    if (!earnedBonuses.includes(key)) {
+        earnedBonuses.push(key);
+        pendingBonuses.push(key);
+    }
+}
+
 function checkBonusesAfterScore(cat) {
-    // Single Dot Yaht — just scored yahtzee and all dice are 1
-    if (cat === 'yahtzee' && scores.yahtzee === 50 && dice.every(d => d === 1)) {
-        if (!earnedBonuses.includes('singledot')) {
-            earnedBonuses.push('singledot');
-            pendingBonuses.push('singledot');
-        }
-    }
-
-    // Double Yahtzee — track all 5-of-a-kinds
     const mx = Math.max(...cnt(dice).slice(1));
-    if (mx === 5) {
-        yahtzeeCount++;
-        if (yahtzeeCount >= 2 && !earnedBonuses.includes('doubleyahtzee')) {
-            earnedBonuses.push('doubleyahtzee');
-            pendingBonuses.push('doubleyahtzee');
-        }
-    }
+    const isYot = mx === 5;
 
-    // Full Dolly — all upper filled (with bonus ≥63) and NO lower filled yet
+    // Track YOT count
+    if (isYot) yahtzeeCount++;
+
+    // --- Ice Breaker: first YOT scored ---
+    if (isYot && yahtzeeCount === 1) addBonus('iceBreaker');
+
+    // --- Cherry Popper: YOT on first roll of the game (round 1, rollsThisTurn was 1) ---
+    if (isYot && round === 1 && rollsThisTurn === 1) addBonus('cherryPopper');
+
+    // --- Single Roll YOT: any YOT with no rerolls ---
+    if (isYot && rollsThisTurn === 1) addBonus('singleRollYot');
+
+    // --- Single Roll Large Straight ---
+    if (cat === 'lgstr' && scores.lgstr > 0 && rollsThisTurn === 1) addBonus('singleRollStr');
+
+    // --- Single Dot Yot: yahtzee on all 1s ---
+    if (cat === 'yahtzee' && scores.yahtzee === 50 && dice.every(d => d === 1)) addBonus('singledot');
+
+    // --- First Sixes: score 3+ sixes in the Sixes row ---
+    if (cat === 'sixes' && scores.sixes >= 18) addBonus('firstSixes');
+
+    // --- Last Call: YOT on the final turn with the row still open ---
+    if (round === 13 && cat === 'yahtzee' && scores.yahtzee === 50) addBonus('lastCall');
+
+    // --- Full Dolly: all upper filled (with bonus >=63) and NO lower filled yet ---
     const allUpperFilled = UPPER.every(c => scores[c] !== undefined);
     const noLowerFilled = LOWER.every(c => scores[c] === undefined);
     const {upper} = getTotal();
-    if (allUpperFilled && noLowerFilled && upper >= 63) {
-        if (!earnedBonuses.includes('dolly')) {
-            earnedBonuses.push('dolly');
-            pendingBonuses.push('dolly');
-        }
-    }
+    if (allUpperFilled && noLowerFilled && upper >= 63) addBonus('dolly');
 
-    // J-Lo — all lower filled and NO upper filled
+    // --- J-Lo: all lower filled and NO upper filled ---
     const allLowerFilled = LOWER.every(c => scores[c] !== undefined);
     const noUpperFilled = UPPER.every(c => scores[c] === undefined);
-    if (allLowerFilled && noUpperFilled) {
-        if (!earnedBonuses.includes('jlo')) {
-            earnedBonuses.push('jlo');
-            pendingBonuses.push('jlo');
-        }
-    }
+    if (allLowerFilled && noUpperFilled) addBonus('jlo');
 
-    // The Ménage — exactly 3 of each in upper (ones=3, twos=6, threes=9, fours=12, fives=15, sixes=18)
+    // --- The Menage: exactly 3 of each in upper ---
     if (allUpperFilled) {
-        const menageTarget = { ones:3, twos:6, threes:9, fours:12, fives:15, sixes:18 };
-        const isMenage = Object.entries(menageTarget).every(([k,v]) => scores[k] === v);
-        if (isMenage && !earnedBonuses.includes('menage')) {
-            earnedBonuses.push('menage');
-            pendingBonuses.push('menage');
-        }
+        const menageTarget = {ones:3,twos:6,threes:9,fours:12,fives:15,sixes:18};
+        if (Object.entries(menageTarget).every(([k,v])=>scores[k]===v)) addBonus('menage');
     }
 }
 
@@ -1576,22 +1884,21 @@ function checkEndGameBonuses() {
     // Clean Card — no zeros
     const allCats = [...UPPER, ...LOWER];
     const noZeros = allCats.every(c => scores[c] !== undefined && scores[c] > 0);
-    if (noZeros && !earnedBonuses.includes('cleancard')) {
-        earnedBonuses.push('cleancard');
-        pendingBonuses.push('cleancard');
-    }
+    if (noZeros) addBonus('cleancard');
 
-    // 300+ — total (before bonuses) >= 300
+    // Score tiers (cumulative)
     const {total} = getTotal();
-    const bonusPts = earnedBonuses.reduce((s,b) => s + (b!=='threeHundred'?BONUS_DEFS[b].pts:0), 0);
-    if (total + bonusPts >= 300 && !earnedBonuses.includes('threeHundred')) {
-        earnedBonuses.push('threeHundred');
-        pendingBonuses.push('threeHundred');
-    }
+    if (total >= 300) addBonus('threeHundred');
+    if (total >= 400) addBonus('fourHundred');
+    if (total >= 500) addBonus('fiveHundred');
+    if (total >= 600) addBonus('sixHundred');
+
+    // Under 200 penalty
+    if (total < 200) addBonus('under200');
 }
 
 function getBonusTotal() {
-    return earnedBonuses.reduce((s, b) => s + BONUS_DEFS[b].pts, 0);
+    return earnedBonuses.reduce((s, b) => s + (BONUS_DEFS[b] ? BONUS_DEFS[b].pts : 0), 0);
 }
 
 // === BONUS OVERLAY ===
@@ -1611,10 +1918,20 @@ function showNextBonus(callback) {
     document.getElementById('bonus-emoji').textContent = b.emoji;
     document.getElementById('bonus-title').textContent = b.name;
     document.getElementById('bonus-desc').textContent = b.desc;
-    document.getElementById('bonus-pts').textContent = `+$${b.pts}`;
+    const ptsEl = document.getElementById('bonus-pts');
+    if (b.pts < 0) {
+        ptsEl.textContent = `-$${Math.abs(b.pts)}`;
+        ptsEl.style.color = '#e74c5e';
+    } else if (b.pts === 0) {
+        ptsEl.textContent = '';
+        ptsEl.style.color = '';
+    } else {
+        ptsEl.textContent = `+$${b.pts}`;
+        ptsEl.style.color = '';
+    }
 
     bonusOverlay.classList.add('show');
-    fireConfetti();
+    if (!b.isPenalty) fireConfetti();
 
     const dismiss = () => {
         bonusOverlay.classList.remove('show');
@@ -1628,7 +1945,7 @@ function showNextBonus(callback) {
 // === SELECT CATEGORY ===
 function select(cat) {
     if (!rolled||scores[cat]!==undefined) return;
-    const pts = calc(cat, dice);
+    const pts = calc(cat, dice, jokerActive);
     scores[cat]=pts;
 
     // Flash the row
@@ -1638,12 +1955,75 @@ function select(cat) {
     // Yahtzee confetti
     if (cat==='yahtzee'&&pts===50) fireConfetti();
 
+    // First Scratch penalty
+    if (pts === 0 && !firstScratchDone) {
+        firstScratchDone = true;
+        if (!earnedBonuses.includes('firstScratch')) {
+            earnedBonuses.push('firstScratch');
+            pendingBonuses.push('firstScratch');
+        }
+    }
+
+    // === JAIL SYSTEM ===
+    if (round === 1 && !inJail) {
+        // Check if first turn is a weak play
+        const isUpper = UPPER.includes(cat);
+        const isChance = cat === 'chance';
+        let goToJail = false;
+        if (isChance) goToJail = true;
+        if (isUpper) {
+            const dieVal = UPPER.indexOf(cat) + 1;
+            const count = cnt(dice)[dieVal];
+            if (count < 3) goToJail = true;
+        }
+        if (goToJail) {
+            inJail = true;
+            jailTurns = 0;
+            if (!earnedBonuses.includes('jail')) {
+                earnedBonuses.push('jail');
+                pendingBonuses.push('jail');
+            }
+        }
+    }
+
+    // Jail: check for release
+    if (inJail && round > 1) {
+        const isLower = LOWER.includes(cat);
+        const isUpper = UPPER.includes(cat);
+        let freed = false;
+        if (isLower) freed = true;
+        if (isUpper) {
+            const dieVal = UPPER.indexOf(cat) + 1;
+            const count = cnt(dice)[dieVal];
+            if (count >= 3) freed = true;
+        }
+        if (freed) inJail = false;
+    }
+
+    // Jail: accumulate penalty while in jail
+    if (inJail) {
+        jailTurns++;
+        jailPenalty += 10;
+    }
+
+    // Shawshank: rolled YOT while in jail
+    if (inJail && Math.max(...cnt(dice).slice(1)) === 5) {
+        inJail = false;
+        if (!earnedBonuses.includes('shawshank')) {
+            earnedBonuses.push('shawshank');
+            pendingBonuses.push('shawshank');
+        }
+    }
+
     // Check bonuses triggered by this score
     checkBonusesAfterScore(cat);
 
+    const wasJoker = jokerActive;
     round++;
     rollsLeft=3;
+    rollsThisTurn=0;
     rolled=false;
+    jokerActive=false;
     held=[false,false,false,false,false];
     dice=[0,0,0,0,0];
 
@@ -1654,7 +2034,7 @@ function select(cat) {
     // Show pending bonuses, then check if game over
     if (pendingBonuses.length > 0) {
         showNextBonus(() => {
-            updateUI(); // refresh totals with bonus
+            updateUI();
             if (round > 13) endGame();
         });
     } else if (round > 13) {
@@ -1668,7 +2048,7 @@ function updateUI() {
     totalDisplay.textContent='$'+total;
     roundNum.textContent=Math.min(round,13);
     rollBtn.disabled=rollsLeft<=0;
-    rollBtn.textContent=rolled?(rollsLeft>0?'Roll Again':'Select a Score'):'Roll Dice';
+    rollBtn.textContent=jokerActive?'🃏 JOKER — Pick Any Row!':rolled?(rollsLeft>0?'Roll Again':'Select a Score'):'Roll Dice';
 
     // Roll pips
     rollsInd.innerHTML='';
@@ -1701,7 +2081,7 @@ function updateUI() {
     rows.forEach(r=>{
         const cat=r.dataset.cat;
         if (scores[cat]===undefined && rolled) {
-            const v = calc(cat,dice);
+            const v = calc(cat,dice,jokerActive);
             potentials[cat] = v;
             if (v > bestVal) { bestVal=v; bestCat=cat; }
         }
@@ -1749,6 +2129,11 @@ function updateUI() {
         }
     });
 
+    // Jail badge
+    const jailBadge = document.getElementById('jail-badge');
+    if (inJail) { jailBadge.classList.add('active'); jailBadge.textContent=`🔒 JAIL -$${jailPenalty}`; }
+    else jailBadge.classList.remove('active');
+
     // High score display
     updateHighScoreDisplay();
 
@@ -1771,97 +2156,102 @@ function getBonusTip() {
     const lowerFilled = LOWER.filter(c => scores[c] !== undefined);
     const upperOpen = UPPER.filter(c => scores[c] === undefined);
     const lowerOpen = LOWER.filter(c => scores[c] === undefined);
-    const {upper} = getTotal();
-
-    // Already earned bonuses — don't re-tip
+    const {upper,total} = getTotal();
     const earned = new Set(earnedBonuses);
 
-    // --- FULL DOLLY: All upper first (with bonus) before any lower ---
+    // --- JAIL WARNING on turn 1 ---
+    if (round === 1 && rolled && !inJail) {
+        return '⚠️ TURN 1: Scoring Chance or an upper with <3 matching = JAIL (-$10/turn). Pick wisely!';
+    }
+
+    // --- JAIL STATUS ---
+    if (inJail) {
+        return `🔒 IN JAIL! -$10/turn (${jailTurns} turns so far, -$${jailPenalty}). Score a lower section or 3+ in upper to escape. YOT = Shawshank (+$30)!`;
+    }
+
+    // --- JOKER ACTIVE ---
+    if (jokerActive) {
+        return '🃏 JOKER ACTIVE! +$100 bonus scored. Pick ANY open row — straights and full house score full points!';
+    }
+
+    // --- FULL DOLLY ---
     if (!earned.has('dolly') && lowerFilled.length === 0 && upperOpen.length > 0 && upperOpen.length <= 3) {
-        const needed = upperOpen.length;
-        const pace = upper / Math.max(upperFilled.length, 1);
-        const projected = pace * 6;
-        if (projected >= 60) {
-            return `🎀 Full Dolly alert! Fill ${needed} more upper slot${needed>1?'s':''} (with 63+ bonus) before touching the bottom = +$30!`;
-        }
-        return `🎀 Going for the Dolly? ${needed} upper slot${needed>1?'s':''} left. Need ${Math.max(0,63-upper)} more pts for the bonus. Don't touch the bottom!`;
+        return `🎀 Dolly alert! ${upperOpen.length} more upper slot${upperOpen.length>1?'s':''} (need ${Math.max(0,63-upper)} more for 63+ bonus) before touching bottom = +$20!`;
     }
     if (!earned.has('dolly') && lowerFilled.length === 0 && upperFilled.length > 0 && upperFilled.length < 4) {
-        return `🎀 Dolly Watch: Fill ALL upper slots (63+ for bonus) before scoring any lower = +$30. ${upperOpen.length} to go.`;
+        return `🎀 Dolly Watch: ALL upper before any lower = +$20. ${upperOpen.length} to go.`;
     }
 
-    // --- J-LO: All lower first, nothing up top ---
+    // --- J-LO ---
     if (!earned.has('jlo') && upperFilled.length === 0 && lowerOpen.length > 0 && lowerOpen.length <= 3) {
-        return `🍑 J-Lo alert! ${lowerOpen.length} more lower slot${lowerOpen.length>1?'s':''} without touching the top = +$30!`;
+        return `🍑 J-Lo alert! ${lowerOpen.length} more lower slot${lowerOpen.length>1?'s':''} without touching top = +$20!`;
     }
     if (!earned.has('jlo') && upperFilled.length === 0 && lowerFilled.length > 0 && lowerFilled.length < 5) {
-        return `🍑 J-Lo Watch: Fill ALL lower slots before scoring any upper = +$30. ${lowerOpen.length} to go.`;
+        return `🍑 J-Lo Watch: ALL lower before any upper = +$20. ${lowerOpen.length} to go.`;
     }
 
-    // --- THE MENAGE: exactly 3 of each up top ---
+    // --- MENAGE ---
     if (!earned.has('menage') && upperFilled.length > 0 && upperFilled.length < 6) {
         const menageTarget = {ones:3,twos:6,threes:9,fours:12,fives:15,sixes:18};
-        const onTrack = upperFilled.every(c => scores[c] === menageTarget[c]);
-        if (onTrack && upperFilled.length >= 2) {
-            return `💋 Ménage in play! Exactly 3 of each up top so far. Keep it perfect = +$25. ${upperOpen.length} slots left.`;
+        if (upperFilled.every(c => scores[c] === menageTarget[c]) && upperFilled.length >= 2) {
+            return `💋 Ménage in play! Exactly 3 of each up top so far = +$30. ${upperOpen.length} left.`;
         }
     }
 
-    // --- SINGLE DOT YAHT ---
+    // --- SINGLE DOT YOT ---
     if (!earned.has('singledot') && scores.yahtzee === undefined && rolled) {
         const ones = dice.filter(d => d === 1).length;
-        if (ones >= 3) {
-            return `🏇 ${ones} ones! Hold them — Yahtzee on all 1s = Single Dot Yaht (+$50 bonus on top of Yahtzee!)`;
-        }
+        if (ones >= 3) return `🏇 ${ones} ones! Hold them — all 1s = Single Dot Yot (+$50)!`;
     }
 
-    // --- DOUBLE YAHTZEE ---
-    if (!earned.has('doubleyahtzee') && yahtzeeCount === 1) {
-        return `🎉 You already rolled one Yahtzee! Get another 5-of-a-kind for Double Yahtzee = +$100!`;
+    // --- YAHTZEE COUNT ---
+    if (yahtzeeCount >= 1 && scores.yahtzee > 0) {
+        return '🃏 YOT already scored! Another 5-of-a-kind = +$100 Joker bonus + play it anywhere!';
     }
 
     // --- CLEAN CARD ---
-    if (round >= 8 && !earned.has('cleancard')) {
+    if (round >= 7 && !earned.has('cleancard')) {
         const allCats = [...UPPER, ...LOWER];
         const zeros = allCats.filter(c => scores[c] === 0).length;
         const openSlots = allCats.filter(c => scores[c] === undefined).length;
-        if (zeros === 0 && openSlots <= 5) {
-            return `✨ Clean Card watch! No zeros yet — keep every category above 0 = +$50. ${openSlots} slots left.`;
-        }
-        if (zeros === 0 && openSlots > 5) {
-            return `✨ Tip: A "Clean Card" (no zeros anywhere) is worth +$50. Avoid scratches when you can!`;
-        }
+        if (zeros === 0 && openSlots <= 5) return `✨ Clean Card! No zeros yet. Keep it clean = +$30. ${openSlots} left.`;
+        if (zeros === 0 && openSlots > 5) return '✨ No scratches yet. Clean Card (no zeros) = +$30!';
     }
 
-    // --- 300 CLUB ---
-    if (round >= 10 && !earned.has('threeHundred')) {
-        const {total} = getTotal();
-        if (total >= 220 && total < 300) {
-            const need = 300 - total;
-            const left = 13 - round + 1;
-            return `🚀 300 Club in sight! Need $${need} more in ${left} round${left>1?'s':''}. That's +$100 if you hit it!`;
-        }
+    // --- SCORE TIERS ---
+    if (round >= 10) {
+        if (total >= 250 && total < 300 && !earned.has('threeHundred')) return `🚀 300 Club: need $${300-total} more = +$20!`;
+        if (total >= 350 && total < 400 && !earned.has('fourHundred')) return `🚀 400 Club: need $${400-total} more = +$40!`;
     }
 
-    // --- General early-game tips ---
+    // --- FIRST SCRATCH WARNING ---
+    if (!firstScratchDone && round >= 5) {
+        const allCats = [...UPPER,...LOWER];
+        const zeros = allCats.filter(c => scores[c] === 0).length;
+        if (zeros === 0) return '😬 No scratches yet! First zero = -$10 penalty. Avoid it!';
+    }
+
+    // --- EARLY GAME ---
     if (round <= 2) {
         const tips = [
-            '🎀 Bonus: Fill ALL upper slots (with 63+ bonus) before any lower = "Full Dolly" +$30',
-            '🍑 Bonus: Fill ALL lower slots before any upper = "The J-Lo" +$30',
-            '💋 Bonus: Score exactly 3-of-each in every upper slot = "The Ménage" +$25',
-            '🏇 Bonus: Yahtzee on all ONES = "Single Dot Yaht" +$50',
-            '🎉 Bonus: Roll two Yahtzees in one game = "Double Yahtzee" +$100',
-            '✨ Bonus: No zeros on the entire card = "Clean Card" +$50',
-            '🚀 Bonus: Score 300+ total = "300 Club" +$100',
+            '⚠️ Turn 1 tip: Scoring Chance or weak upper = JAIL (-$10/turn until you escape)!',
+            '🎀 Bonus: Fill ALL upper (63+) before any lower = "Full Dolly" +$20',
+            '🍑 Bonus: Fill ALL lower before any upper = "The J-Lo" +$20',
+            '💋 Bonus: Exactly 3 of each upper = "The Ménage" +$30',
+            '🏇 Bonus: Yahtzee on all ONES = "Single Dot Yot" +$50',
+            '🎯 Bonus: YOT on first roll (no rerolls) = "Cherry Popper" +$30',
+            '✨ Bonus: No zeros on the card = "Clean Card" +$30',
+            '🚀 Bonus: Score 300+ = $20, 400+ = $40, 500+ = $60, 600+ = $80',
         ];
         return tips[Math.floor(Math.random() * tips.length)];
     }
 
     if (round <= 5) {
         const tips = [
-            'Tip: Aim for 3 of each die value in upper section (63+) to get the +35 bonus.',
-            'Tip: Yahtzee on all ones is rare — but worth $50 + $50 bonus = $100 total!',
-            'Tip: A "Clean Card" means no zeros. Think twice before scratching a category.',
+            'Tip: Aim for 3 of each in upper (63+) for the +35 bonus.',
+            'Tip: YOT with no rerolls = "Single Roll YOT" +$30. Cherry Popper if on turn 1!',
+            'Tip: First zero = -$10 penalty. Think before you scratch!',
+            'Tip: Large Straight on first roll = +$10 bonus.',
         ];
         return tips[Math.floor(Math.random() * tips.length)];
     }
@@ -1903,12 +2293,24 @@ function finishEndGame() {
     // Show bonus breakdown
     const bonusDiv = document.getElementById('go-bonuses');
     bonusDiv.innerHTML = '';
+    // Add jail penalty as a line item
+    if (jailPenalty > 0) {
+        const jr = document.createElement('div');
+        jr.className = 'go-bonus-row';
+        jr.innerHTML = `<span class="name">🔒 Jail Penalty (${jailTurns} turns)</span><span class="pts" style="color:#e74c5e">-$${jailPenalty}</span>`;
+        bonusDiv.appendChild(jr);
+    }
     if (earnedBonuses.length > 0) {
         earnedBonuses.forEach(key => {
             const b = BONUS_DEFS[key];
+            if (!b || b.pts === 0) return; // skip jail (shown above) and zero-pt entries
             const row = document.createElement('div');
             row.className = 'go-bonus-row';
-            row.innerHTML = `<span class="name">${b.emoji} ${b.name}</span><span class="pts">+$${b.pts}</span>`;
+            if (b.pts < 0) {
+                row.innerHTML = `<span class="name">${b.emoji} ${b.name}</span><span class="pts" style="color:#e74c5e">-$${Math.abs(b.pts)}</span>`;
+            } else {
+                row.innerHTML = `<span class="name">${b.emoji} ${b.name}</span><span class="pts">+$${b.pts}</span>`;
+            }
             bonusDiv.appendChild(row);
         });
     }
@@ -1924,6 +2326,9 @@ function reset() {
     dice=[0,0,0,0,0]; held=[false,false,false,false,false];
     rollsLeft=3; round=1; scores={}; rolled=false;
     yahtzeeCount=0; earnedBonuses=[]; pendingBonuses=[];
+    jokerActive=false; jokerBonusPoints=0; rollsThisTurn=0;
+    heldBeforeLastRoll=[false,false,false,false,false];
+    inJail=false; jailTurns=0; jailPenalty=0; firstScratchDone=false;
     wraps.forEach(w=>w.classList.remove('held'));
     dies.forEach(el=>renderDie(el,0));
     goEl.classList.remove('visible');
