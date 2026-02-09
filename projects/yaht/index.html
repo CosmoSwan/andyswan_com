@@ -2660,32 +2660,47 @@ function addBonus(key) {
     }
 }
 
-function checkBonusesAfterScore(cat) {
+// Check if any opponent already earned a bonus (for competitive "firsts" in MP)
+async function oppHasBonus(bonusKey) {
+    if (!mpMode) return false;
+    try {
+        const players = await MP.getPlayers();
+        const myPlayer = MP.getMyPlayer();
+        return players.some(p => p.id !== myPlayer?.id && p.bonuses && p.bonuses.includes(bonusKey));
+    } catch(e) { return false; }
+}
+
+async function checkBonusesAfterScore(cat) {
     const mx = Math.max(...cnt(dice).slice(1));
     const isYot = mx === 5;
 
     // Track YOT count
     if (isYot) yahtzeeCount++;
 
-    // --- Ice Breaker: first YOT scored ---
-    if (isYot && yahtzeeCount === 1) addBonus('iceBreaker');
+    // --- Ice Breaker: first YOT scored (in MP: first player to do it) ---
+    if (isYot && yahtzeeCount === 1) {
+        if (!mpMode || !(await oppHasBonus('iceBreaker'))) addBonus('iceBreaker');
+    }
 
-    // --- Cherry Popper: YOT on first roll of the game (round 1, rollsThisTurn was 1) ---
+    // --- Cherry Popper: YOT on first roll of the game (round 1, no rerolls) ---
+    // This is personal (not competitive) — cumulative with Ice Breaker per the rules
     if (isYot && round === 1 && rollsThisTurn === 1) addBonus('cherryPopper');
 
-    // --- Single Roll YOT: any YOT with no rerolls ---
+    // --- Single Roll YOT: any YOT with no rerolls (personal, not competitive) ---
     if (isYot && rollsThisTurn === 1) addBonus('singleRollYot');
 
-    // --- Single Roll Large Straight ---
+    // --- Single Roll Large Straight (personal) ---
     if (cat === 'lgstr' && scores.lgstr > 0 && rollsThisTurn === 1) addBonus('singleRollStr');
 
-    // --- Single Dot Yot: yahtzee on all 1s ---
+    // --- Single Dot Yot: yahtzee on all 1s (personal) ---
     if (cat === 'yahtzee' && scores.yahtzee === 50 && dice.every(d => d === 1)) addBonus('singledot');
 
-    // --- First Sixes: score 3+ sixes in the Sixes row ---
-    if (cat === 'sixes' && scores.sixes >= 18) addBonus('firstSixes');
+    // --- First Sixes: score 3+ sixes (in MP: first player to do it) ---
+    if (cat === 'sixes' && scores.sixes >= 18) {
+        if (!mpMode || !(await oppHasBonus('firstSixes'))) addBonus('firstSixes');
+    }
 
-    // --- Last Call: YOT on the final turn with the row still open ---
+    // --- Last Call: YOT on the final turn with the row still open (personal) ---
     if (round === 13 && cat === 'yahtzee' && scores.yahtzee === 50) addBonus('lastCall');
 
     // --- Full Dolly: all upper filled (with bonus >=63) and NO lower filled yet ---
@@ -2782,7 +2797,7 @@ function showNextBonus(callback) {
 }
 
 // === SELECT CATEGORY ===
-function select(cat) {
+async function select(cat) {
     if (!rolled||scores[cat]!==undefined) return;
     const pts = calc(cat, dice, jokerActive);
     scores[cat]=pts;
@@ -2852,7 +2867,7 @@ function select(cat) {
     }
 
     // Check bonuses triggered by this score
-    checkBonusesAfterScore(cat);
+    await checkBonusesAfterScore(cat);
 
     const wasJoker = jokerActive;
     round++;
