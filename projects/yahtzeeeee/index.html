@@ -1673,29 +1673,35 @@ function animJail() {
 // ===================== 9. SHAWSHANK — Bars breaking =====================
 function animShawshank() {
     sizeBonusCanvas();
-    const W=bonusCanvas.width,H=bonusCanvas.height;
-    const pieces=[];
+    const W=bonusCanvas.width,H=bonusCanvas.height,cx=W/2,cy=H/2;
+    const pieces=[],rain=[];
+    const img=new Image();
+    img.src='bonus-images/shawshank.png';
+    let imgReady=false,fadeIn=0;
+    img.onload=()=>{imgReady=true;};
     let t=0,exploded=false;
+
     function draw(){
         bCtx.clearRect(0,0,W,H);
         t+=0.016;
-        if(!exploded && t>0.5){
+        fadeIn=Math.min(fadeIn+0.015,1);
+
+        if(!exploded && t>0.6){
             exploded=true;
-            // Shatter bars into pieces
             for(let i=0;i<60;i++){
                 pieces.push({x:W*0.1+Math.random()*W*0.8,y:Math.random()*H,
                     vx:rng(-8,8),vy:rng(-10,5),w:rng(8,20),h:rng(15,40),
                     rot:0,rv:rng(-5,5),life:1,color:`hsl(${rng(35,55)},${rng(5,15)}%,${rng(50,75)}%)`});
             }
-            // Golden light particles
             for(let i=0;i<80;i++){
-                pieces.push({x:W/2,y:H/2,vx:rng(-6,6),vy:rng(-6,6),
+                pieces.push({x:cx,y:cy,vx:rng(-6,6),vy:rng(-6,6),
                     w:rng(2,5),h:0,rot:0,rv:0,life:1,isLight:true,
                     color:`rgba(255,215,0,${rng(0.5,1)})`});
             }
         }
+
+        // Pre-explosion: shaking bars
         if(!exploded){
-            // Show bars pre-explosion
             bCtx.fillStyle='rgba(40,0,0,0.2)';bCtx.fillRect(0,0,W,H);
             const barCount=8,barW=W*0.02;
             for(let i=0;i<barCount;i++){
@@ -1704,7 +1710,41 @@ function animShawshank() {
                 bCtx.fillStyle='#888';bCtx.fillRect(x+shake,0,barW,H);
             }
         }
-        // Pieces flying
+
+        // Shawshank image — fades in after explosion
+        if(imgReady && exploded){
+            const maxH=H*0.7;
+            const scale=maxH/img.height;
+            const iw=img.width*scale;
+            const ih=img.height*scale;
+            const ix=cx-iw/2;
+            const iy=cy-ih/2;
+            // Blue/rain glow
+            bCtx.save();
+            bCtx.globalAlpha=fadeIn*0.25;
+            bCtx.shadowColor='#4488cc';
+            bCtx.shadowBlur=60;
+            bCtx.fillStyle='#4488cc';
+            bCtx.beginPath();bCtx.ellipse(cx,cy,iw/2+25,ih/2+25,0,0,Math.PI*2);bCtx.fill();
+            bCtx.restore();
+            bCtx.save();
+            bCtx.globalAlpha=fadeIn;
+            bCtx.drawImage(img,ix,iy,iw,ih);
+            bCtx.restore();
+        }
+
+        // Rain over the image
+        if(exploded){
+            for(let i=0;i<4;i++) rain.push({x:rng(0,W),y:-10,vy:rng(8,14),len:rng(10,20),a:rng(0.1,0.25)});
+            rain.forEach(d=>{
+                d.y+=d.vy;
+                bCtx.beginPath();bCtx.moveTo(d.x,d.y);bCtx.lineTo(d.x-0.5,d.y-d.len);
+                bCtx.strokeStyle=`rgba(150,190,230,${d.a})`;bCtx.lineWidth=1;bCtx.stroke();
+            });
+            for(let i=rain.length-1;i>=0;i--) if(rain[i].y>H+30) rain.splice(i,1);
+        }
+
+        // Bar pieces flying
         pieces.forEach(p=>{
             p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.rot+=p.rv;p.life-=0.01;
             if(p.life>0){
@@ -1716,11 +1756,13 @@ function animShawshank() {
                 bCtx.globalAlpha=1;bCtx.restore();
             }
         });
-        // Golden flash
-        if(exploded && t<1.5){
-            const flash=Math.max(0,1-(t-0.5)*2)*0.3;
+
+        // Golden flash at moment of freedom
+        if(exploded && t<1.2){
+            const flash=Math.max(0,1-(t-0.6)*2)*0.25;
             bCtx.fillStyle=`rgba(255,215,0,${flash})`;bCtx.fillRect(0,0,W,H);
         }
+
         bonusAnimId=requestAnimationFrame(draw);
     }
     draw();
