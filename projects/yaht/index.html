@@ -2677,9 +2677,9 @@ async function checkBonusesAfterScore(cat) {
     // Track YOT count
     if (isYot) yahtzeeCount++;
 
-    // --- Ice Breaker: first YOT scored (in MP: first player to do it) ---
-    if (isYot && yahtzeeCount === 1) {
-        if (!mpMode || !(await oppHasBonus('iceBreaker'))) addBonus('iceBreaker');
+    // --- Ice Breaker: first YOT in the match (MP only) ---
+    if (mpMode && isYot && yahtzeeCount === 1) {
+        if (!(await oppHasBonus('iceBreaker'))) addBonus('iceBreaker');
     }
 
     // --- Cherry Popper: YOT on first roll of the game (round 1, no rerolls) ---
@@ -2695,9 +2695,9 @@ async function checkBonusesAfterScore(cat) {
     // --- Single Dot Yot: yahtzee on all 1s (personal) ---
     if (cat === 'yahtzee' && scores.yahtzee === 50 && dice.every(d => d === 1)) addBonus('singledot');
 
-    // --- First Sixes: score 3+ sixes (in MP: first player to do it) ---
-    if (cat === 'sixes' && scores.sixes >= 18) {
-        if (!mpMode || !(await oppHasBonus('firstSixes'))) addBonus('firstSixes');
+    // --- First Sixes: first to score 3+ sixes (MP only) ---
+    if (mpMode && cat === 'sixes' && scores.sixes >= 18) {
+        if (!(await oppHasBonus('firstSixes'))) addBonus('firstSixes');
     }
 
     // --- Last Call: YOT on the final turn with the row still open (personal) ---
