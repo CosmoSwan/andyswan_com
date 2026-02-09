@@ -2869,35 +2869,41 @@ async function select(cat) {
     // Check bonuses triggered by this score
     await checkBonusesAfterScore(cat);
 
-    const wasJoker = jokerActive;
-    round++;
-    rollsLeft=3;
-    rollsThisTurn=0;
-    rolled=false;
-    jokerActive=false;
-    held=[false,false,false,false,false];
-    dice=[0,0,0,0,0];
+    // Capture the completed round number BEFORE incrementing
+    const completedRound = round;
 
-    wraps.forEach(w=>w.classList.remove('held'));
-    dies.forEach(el=>renderDie(el,0));
-    updateUI();
-
-    // Push to Supabase in multiplayer after each round
-    async function afterBonuses() {
-        updateUI();
+    // Submit to Supabase FIRST (before clearing local state) so scores are saved
+    async function submitAndAdvance() {
         if (mpMode) {
             const {total} = getTotal();
-            await MP.submitRound(scores, earnedBonuses, jailPenalty, jokerBonusPoints, total, round - 1);
+            console.log(`[MP] Submitting round ${completedRound}, total: $${total}, scores:`, JSON.stringify(scores));
+            const result = await MP.submitRound(scores, earnedBonuses, jailPenalty, jokerBonusPoints, total, completedRound);
+            console.log('[MP] Submit result:', result);
+        }
+
+        // NOW reset local state for next round
+        round = completedRound + 1;
+        rollsLeft=3;
+        rollsThisTurn=0;
+        rolled=false;
+        jokerActive=false;
+        held=[false,false,false,false,false];
+        dice=[0,0,0,0,0];
+
+        wraps.forEach(w=>w.classList.remove('held'));
+        dies.forEach(el=>renderDie(el,0));
+        updateUI();
+
+        if (mpMode) {
             await checkRoundSync();
         }
         if (round > 13 && !mpMode) endGame();
-        // In MP mode, game over is handled by checkRoundSync -> leaderboard
     }
 
     if (pendingBonuses.length > 0) {
-        showNextBonus(() => afterBonuses());
+        showNextBonus(() => submitAndAdvance());
     } else {
-        afterBonuses();
+        await submitAndAdvance();
     }
 }
 
@@ -3424,7 +3430,11 @@ document.getElementById('btn-start').addEventListener('click', async () => {
     // Realtime callback will trigger startMultiplayerGame for all players
 });
 
+let mpGameStarted = false; // guard against double-start from realtime events
+
 function startMultiplayerGame() {
+    if (mpGameStarted) return; // prevent double-start
+    mpGameStarted = true;
     mpMode = true;
     lobby.style.display = 'none';
     gameArea.style.display = '';
@@ -3656,6 +3666,7 @@ document.getElementById('lb-btn-home').addEventListener('click', () => {
     modeSelect.style.display = '';
     MP.cleanup();
     mpMode = false;
+    mpGameStarted = false;
     if (mpPollInterval) { clearInterval(mpPollInterval); mpPollInterval = null; }
     reset();
 });
