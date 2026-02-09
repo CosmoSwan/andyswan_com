@@ -5,9 +5,8 @@
 const MP = (function() {
 
     // === SUPABASE CONFIG ===
-    // REPLACE these with your Supabase project values
-    const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+    const SUPABASE_URL = 'https://urmqudupcwqtpgfuybai.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybXF1ZHVwY3dxdHBnZnV5YmFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NjM0MzksImV4cCI6MjA4NjIzOTQzOX0.MaSGteOF089qFAVbiYEuflETsbWvEsKfX-d_bWGh7SQ';
 
     let supabase = null;
     let currentGame = null;
