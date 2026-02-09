@@ -789,7 +789,12 @@ a { color: inherit; text-decoration: none; }
 .lobby-start { font-family:var(--sans);font-size:1rem;font-weight:600;padding:12px 40px;border:none;border-radius:50px;background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--brown);cursor:pointer;transition:all 0.2s;margin-bottom:12px; }
 .lobby-start:hover { transform:translateY(-2px);box-shadow:0 6px 20px rgba(212,165,55,0.4); }
 .lobby-start:disabled { opacity:0.4;cursor:not-allowed;transform:none; }
-.lobby-wait { font-family:var(--mono);font-size:0.75rem;color:var(--text-faint); }
+.lobby-wait { font-family:var(--mono);font-size:0.75rem;color:var(--text-faint);text-align:center; }
+.lobby-wait p { margin-top:8px; }
+.lobby-wait-dots { display:flex;justify-content:center;gap:5px;margin:8px 0; }
+.lobby-wait-dots span { width:8px;height:8px;border-radius:50%;background:var(--teal);animation:wait-pulse 1s ease-in-out infinite; }
+.lobby-wait-dots span:nth-child(2) { animation-delay:0.2s; }
+.lobby-wait-dots span:nth-child(3) { animation-delay:0.4s; }
 .lobby-back { background:none;border:none;font-family:var(--mono);font-size:0.75rem;color:var(--text-faint);cursor:pointer;margin-top:12px; }
 .lobby-back:hover { color:var(--cream); }
 
@@ -804,7 +809,8 @@ a { color: inherit; text-decoration: none; }
     background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);
 }
 .wait-card { text-align:center;padding:40px;background:rgba(0,0,0,0.4);border:1px solid rgba(212,165,55,0.2);border-radius:20px;max-width:400px; }
-.wait-title { font-family:var(--serif);font-size:1.6rem;color:var(--gold-light);margin-bottom:16px; }
+.wait-title { font-family:var(--serif);font-size:1.6rem;color:var(--gold-light);margin-bottom:4px; }
+.wait-subtitle { font-family:var(--mono);font-size:0.75rem;color:var(--text-dim);margin-bottom:16px; }
 .wait-scores { margin-bottom:16px; }
 .wait-score-row { display:flex;justify-content:space-between;padding:6px 0;font-family:var(--mono);font-size:0.8rem;border-bottom:1px solid rgba(255,255,255,0.04); }
 .wait-score-row .wname { color:var(--cream); }
@@ -912,7 +918,10 @@ a { color: inherit; text-decoration: none; }
             </div>
             <div class="lobby-players" id="lobby-players"></div>
             <button class="lobby-start" id="btn-start" style="display:none">Start Game</button>
-            <p class="lobby-wait" id="lobby-wait">Waiting for players...</p>
+            <div class="lobby-wait" id="lobby-wait">
+                <div class="lobby-wait-dots"><span></span><span></span><span></span></div>
+                <p id="lobby-wait-msg">Send the code to your friends...</p>
+            </div>
         </div>
 
         <button class="lobby-back" id="btn-lobby-back">← Back</button>
@@ -928,10 +937,11 @@ a { color: inherit; text-decoration: none; }
 <!-- ====== WAITING OVERLAY (between rounds) ====== -->
 <div class="wait-overlay" id="wait-overlay" style="display:none">
     <div class="wait-card">
-        <div class="wait-title">Round Complete!</div>
+        <div class="wait-title" id="wait-title">Round Complete!</div>
+        <div class="wait-subtitle" id="wait-subtitle"></div>
         <div class="wait-scores" id="wait-scores"></div>
         <div class="wait-msg" id="wait-msg">Waiting for other players...</div>
-        <div class="wait-dots"><span></span><span></span><span></span></div>
+        <div class="wait-dots" id="wait-dots"><span></span><span></span><span></span></div>
     </div>
 </div>
 
@@ -957,6 +967,7 @@ a { color: inherit; text-decoration: none; }
         <div class="status-round">Round <span id="round-num">1</span>/13</div>
     </div>
 
+    <div class="tip-bar" id="tip-bar"></div>
     <div class="hype" id="hype"></div>
 
     <div class="dice-tray" id="dice-tray">
@@ -1020,7 +1031,6 @@ a { color: inherit; text-decoration: none; }
     <!-- Opponent scorecards (multiplayer only) -->
     <div class="opponents" id="opponents" style="display:none"></div>
 
-    <div class="tip-bar" id="tip-bar"></div>
     <div class="high-score" id="high-score-display"></div>
 
     <div class="game-over" id="game-over">
@@ -2830,6 +2840,11 @@ function updateUI() {
 
 function updateTip() {
     const tipBar = document.getElementById('tip-bar');
+    // Hide tip during active roll — hype messages take over
+    if (rolled && rollsLeft < 3) {
+        tipBar.innerHTML = '';
+        return;
+    }
     const tip = getBonusTip();
     if (tip) {
         tipBar.innerHTML = `<span class="tip-label">Bonus Tip</span>${tip}`;
@@ -3205,7 +3220,16 @@ async function refreshLobbyPlayers() {
     // Enable start button if 2+ players
     const startBtn = document.getElementById('btn-start');
     startBtn.disabled = players.length < 2;
-    document.getElementById('lobby-wait').textContent = players.length < 2 ? 'Waiting for players...' : `${players.length} players ready`;
+
+    const waitMsg = document.getElementById('lobby-wait-msg');
+    const isHost = MP.isCreator();
+    if (players.length < 2) {
+        waitMsg.textContent = 'Send the code to your friends...';
+    } else if (isHost) {
+        waitMsg.textContent = `${players.length} players in the room. Hit Start when everyone's here!`;
+    } else {
+        waitMsg.textContent = `${players.length} players ready. Waiting for the host to start...`;
+    }
 }
 
 // === START GAME ===
@@ -3330,18 +3354,52 @@ function showWaiting(players, roundNum) {
     const container = document.getElementById('wait-scores');
     const myPlayer = MP.getMyPlayer();
     container.innerHTML = '';
-    players.sort((a,b) => b.total_score - a.total_score).forEach(p => {
+
+    const sorted = [...players].sort((a,b) => b.total_score - a.total_score);
+    const myRank = sorted.findIndex(p => p.id === myPlayer?.id) + 1;
+    const myScore = myPlayer?.total_score || 0;
+    const leader = sorted[0];
+    const isLeading = leader?.id === myPlayer?.id;
+    const stillPlaying = players.filter(p => p.current_round <= roundNum);
+    const allDone = stillPlaying.length === 0;
+
+    // Title and subtitle
+    document.getElementById('wait-title').textContent = `Round ${roundNum} Complete!`;
+
+    let subtitle = '';
+    if (isLeading && sorted.length > 1) {
+        const lead = myScore - sorted[1].total_score;
+        subtitle = lead > 0 ? `You're in the lead by $${lead}!` : 'You\'re tied for first!';
+    } else if (myRank === 2) {
+        subtitle = `$${leader.total_score - myScore} behind ${leader.name}. Close the gap!`;
+    } else if (myRank > 2) {
+        subtitle = `${myRank}${myRank===3?'rd':'th'} place. $${leader.total_score - myScore} off the lead.`;
+    }
+    document.getElementById('wait-subtitle').textContent = subtitle;
+
+    // Player rows
+    sorted.forEach((p, i) => {
         const done = p.current_round > roundNum;
+        const isMe = p.id === myPlayer?.id;
         const row = document.createElement('div');
         row.className = 'wait-score-row';
-        row.innerHTML = `<span class="wname">${p.name}${p.id===myPlayer?.id?' (you)':''}</span>
+        row.innerHTML = `<span class="wname">${i===0?'👑 ':''}${p.name}${isMe?' (you)':''}</span>
             <span class="wscore">$${p.total_score}</span>
-            <span class="wstatus ${done?'done':'pending'}">${done?'Done':'Playing...'}</span>`;
+            <span class="wstatus ${done?'done':'pending'}">${done?'✓ Done':'Rolling...'}</span>`;
         container.appendChild(row);
     });
 
-    const allDone = players.every(p => p.current_round > roundNum);
-    document.getElementById('wait-msg').textContent = allDone ? 'All done! Next round loading...' : 'Waiting for other players...';
+    // Message
+    if (allDone) {
+        document.getElementById('wait-msg').textContent = roundNum >= 13 ? 'Game over! Calculating results...' : 'All done! Next round starting...';
+        document.getElementById('wait-dots').style.display = 'none';
+    } else {
+        const names = stillPlaying.map(p => p.name);
+        const waitFor = names.length <= 2 ? names.join(' and ') : `${names.length} player${names.length>1?'s':''}`;
+        document.getElementById('wait-msg').textContent = `Waiting for ${waitFor}...`;
+        document.getElementById('wait-dots').style.display = '';
+    }
+
     waitOverlay.style.display = '';
 }
 
