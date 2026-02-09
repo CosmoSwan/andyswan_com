@@ -3232,6 +3232,7 @@ document.addEventListener('keydown', e=>{
 // MULTIPLAYER INTEGRATION
 // ========================================================
 let mpMode = false; // true when in a multiplayer game
+let mpPollInterval = null;
 
 const modeSelect = document.getElementById('mode-select');
 const lobby = document.getElementById('lobby');
@@ -3403,12 +3404,19 @@ function startMultiplayerGame() {
     // Initial load of opponents
     checkRoundSync();
 
-    // Listen for round updates in-game
+    // Listen for round updates in-game (realtime)
     MP.setOnGameUpdate(async (type, payload) => {
         if (type === 'player_change' || type === 'game_change') {
             await checkRoundSync();
         }
     });
+
+    // Polling fallback — realtime can be flaky on mobile Safari
+    if (mpPollInterval) clearInterval(mpPollInterval);
+    mpPollInterval = setInterval(async () => {
+        if (!mpMode) return;
+        await checkRoundSync();
+    }, 5000);
 }
 
 // === OPPONENT SCORECARDS ===
@@ -3470,9 +3478,11 @@ function renderOpponents(players, gameRound) {
 async function checkRoundSync() {
     if (!mpMode) return;
     const state = await MP.getGameState();
-    if (!state) return;
+    if (!state || !state.game) return;
 
     const { game, players } = state;
+
+    // getGameState() now refreshes currentPlayer from DB — always use fresh data
     const myPlayer = MP.getMyPlayer();
     const myRound = myPlayer?.current_round || 1;
 
@@ -3481,22 +3491,27 @@ async function checkRoundSync() {
 
     // Update mp bar status
     const done = players.filter(p => p.current_round > game.current_round).length;
-    document.getElementById('mp-bar-status').textContent = `Round ${game.current_round}/13 · ${done}/${players.length} done`;
+    const gameRound = Math.min(game.current_round, 13);
+    document.getElementById('mp-bar-status').textContent = `Round ${gameRound}/13 · ${done}/${players.length} done`;
 
     // Game finished
     if (game.status === 'finished') {
         waitOverlay.style.display = 'none';
+        if (mpPollInterval) { clearInterval(mpPollInterval); mpPollInterval = null; }
         showLeaderboard(players);
         return;
     }
 
-    // If I've finished my round but others haven't — show waiting
+    // Check: has the game round advanced past what we were waiting on?
+    const wasWaiting = waitOverlay.style.display !== 'none';
+
+    // If I've finished my round but the game hasn't advanced yet — show waiting
     if (myRound > game.current_round) {
         showWaiting(players, game.current_round);
     }
 
-    // If everyone finished and I can proceed — notify!
-    if (myRound <= game.current_round && waitOverlay.style.display !== 'none') {
+    // If the game round caught up to (or passed) my round — I can play! Dismiss waiting.
+    if (myRound <= game.current_round && wasWaiting) {
         waitOverlay.style.display = 'none';
         sendLocalNotification('Yahtzeeeee!', `Round ${game.current_round} is ready — it's your turn!`);
     }
@@ -3586,6 +3601,7 @@ document.getElementById('lb-btn-home').addEventListener('click', () => {
     modeSelect.style.display = '';
     MP.cleanup();
     mpMode = false;
+    if (mpPollInterval) { clearInterval(mpPollInterval); mpPollInterval = null; }
     reset();
 });
 

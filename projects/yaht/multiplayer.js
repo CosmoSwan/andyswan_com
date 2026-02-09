@@ -210,7 +210,7 @@ const MP = (function() {
         return { allDone };
     }
 
-    // === GET GAME STATE ===
+    // === GET GAME STATE (always fresh from DB) ===
     async function getGameState() {
         if (!currentGame) return null;
 
@@ -220,9 +220,16 @@ const MP = (function() {
             .eq('id', currentGame.id)
             .single();
 
+        if (!game) return null;
+
         const players = await getPlayers();
 
+        // Update local state from DB
         currentGame = game;
+
+        // Refresh our own player state from DB too
+        const me = players.find(p => p.session_token === sessionToken);
+        if (me) currentPlayer = me;
 
         return { game, players };
     }
