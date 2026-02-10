@@ -2885,6 +2885,9 @@ async function select(cat) {
    }
  }
 
+ // Snapshot bonuses before this turn for diff later
+ const bonusesBeforeTurn = [...earnedBonuses];
+
  scores[cat]=pts;
 
  // Flash the row
@@ -2961,9 +2964,13 @@ async function select(cat) {
  async function submitAndAdvance() {
  if (mpMode) {
  const {total} = getTotal();
- // Build bonus names for recap
- const bonusNames = earnedBonuses.filter(k=>BONUS_DEFS[k]).map(k=>`${BONUS_DEFS[k].emoji} ${BONUS_DEFS[k].name} (+$${BONUS_DEFS[k].pts})`);
- console.log(`[MP] endTurn round ${completedRound}, cat: ${cat}, pts: ${pts}, total: $${total}`);
+ // Build bonus names for recap — ONLY bonuses earned THIS turn (from pendingBonuses that were just shown)
+ const turnBonuses = earnedBonuses.filter(k => !bonusesBeforeTurn.includes(k));
+ const bonusNames = turnBonuses.filter(k=>BONUS_DEFS[k]).map(k=>{
+   const b=BONUS_DEFS[k];
+   return b.pts<0 ? `${b.emoji} ${b.name} (-$${Math.abs(b.pts)})` : `${b.emoji} ${b.name} (+$${b.pts})`;
+ });
+ console.log(`[MP] endTurn round ${completedRound}, cat: ${cat}, pts: ${pts}, total: $${total}, turnBonuses:`, turnBonuses);
  await MP.endTurn(scores, earnedBonuses, jailPenalty, jokerBonusPoints, total, completedRound, cat, pts, bonusNames);
  }
 
