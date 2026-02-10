@@ -1219,7 +1219,7 @@ input, button { touch-action: manipulation; }
  </div>
 
  <div class="footer">
- Built by <a href="/">Andy Swan</a> · Press Space to roll · 1-5 to hold
+ Built by <a href="/">Andy Swan</a>  Press Space to roll - 1-5 to hold
  </div>
 </div>
 
@@ -1375,14 +1375,14 @@ function getTotal() {
 }
 
 // === HYPE MESSAGES ===
-const YOT_NAMES = { 1:'Single Dot Yot! âš€', 2:'Duck Yot! ', 3:'Bird Yot! ', 4:'Box Yot! ', 5:'Fiver! âœ‹', 6:'Dot Yot! âš…' };
+const YOT_NAMES = { 1:'Single Dot Yot!', 2:'Duck Yot!', 3:'Bird Yot!', 4:'Box Yot!', 5:'Fiver!', 6:'Dot Yot!' };
 
 const HYPES = {
  yahtzee: [' YAHTZEEEEE!!!', ' ABSOLUTE LEGEND!', ' FIFTY POINTS!', ' PERFECTION!'],
  joker: [' JOKER! +$100! Pick ANY row!', ' WILD CARD! +$100 bonus!', ' JOKER ACTIVATED! +$100!'],
  four: ['Four of a kind! ', 'QUAD DAMAGE!', 'So close to Yahtzee...'],
  three: ['Trips! Nice.', 'Three of a kind '],
- full: ['Full House!  ', 'Boats & floats!'],
+ full: ['Full House!', 'Boats & floats!'],
  dreamboat: [' DREAM BOAT! Full House 1s & 2s!'],
  lgstr: ['Large Straight! ', 'FIVE IN A ROW!'],
  smstr: ['Small Straight ', 'Four in a row!'],
@@ -1392,7 +1392,7 @@ const HYPES = {
  bad: ['Oof. ', 'Rough roll.', 'We\'ve all been there.', 'Pain.', 'The dice gods are cruel.'],
  good: ['Not bad!', 'Working with something!', 'Options! '],
  start: ['Let\'s go! ', 'Roll \'em!', 'Feeling lucky?'],
- jailwarn: ['âš ï¸ Careful on Turn 1 weak play = Jail!'],
+ jailwarn: [' Careful on Turn 1 weak play = Jail!'],
 };
 
 function hype(key) {
@@ -1521,28 +1521,28 @@ function hold(i) {
 // === BONUS DEFINITIONS ===
 const BONUS_DEFS = {
  // Existing (adjusted to $10/ASTI)
- dolly: { name:'The Full Dolly', emoji:'', desc:'Filled the ENTIRE top (with bonus!) before touching the bottom. Dolly would be proud.', pts:20 },
- jlo: { name:'The J-Lo', emoji:'', desc:'Filled the ENTIRE bottom with nothing up top. That\'s a legendary bottom.', pts:20 },
- menage: { name:'The MÃ©nage', emoji:'', desc:'Exactly three of everything up top. A perfect mÃ©nage Ã  trois across the board.', pts:30 },
- singledot: { name:'Single Dot Yot', emoji:'', desc:'Yahtzee on ONES! Five single dots cross the finish line!', pts:50 },
- cleancard: { name:'Clean Card', emoji:'âœ¨', desc:'Not a single zero on the scorecard. Spotless. Immaculate.', pts:30 },
- threeHundred: { name:'300 Club', emoji:'', desc:'Three hundred plus! You are operating at an elite level.', pts:20 },
- fourHundred: { name:'400 Club', emoji:'', desc:'Four hundred! Now we\'re cooking.', pts:40 },
- fiveHundred: { name:'500 Club', emoji:'', desc:'Five hundred. Absolutely dominant.', pts:60 },
- sixHundred: { name:'600 Club', emoji:'', desc:'SIX HUNDRED. Hall of fame.', pts:80 },
+    dolly:         { name:'The Full Dolly',   emoji:'*', desc:'Filled the ENTIRE top (with bonus!) before touching the bottom. Dolly would be proud.', pts:20 },
+    jlo:           { name:'The J-Lo',         emoji:'*', desc:'Filled the ENTIRE bottom with nothing up top. That is a legendary bottom.', pts:20 },
+    menage:        { name:'The Menage',       emoji:'*', desc:'Exactly three of everything up top. A perfect menage a trois across the board.', pts:30 },
+    singledot:     { name:'Single Dot Yot',   emoji:'*', desc:'Yahtzee on ONES! Five single dots cross the finish line!', pts:50 },
+    cleancard:     { name:'Clean Card',       emoji:'*', desc:'Not a single zero on the scorecard. Spotless. Immaculate.', pts:30 },
+  threeHundred:  { name:'300 Club',         emoji:'*', desc:'Three hundred plus! You are operating at an elite level.', pts:20 },
+   fourHundred:   { name:'400 Club',         emoji:'*', desc:'Four hundred! Now we are cooking.', pts:40 },
+   fiveHundred:   { name:'500 Club',         emoji:'*', desc:'Five hundred. Absolutely dominant.', pts:60 },
+    sixHundred:    { name:'600 Club',         emoji:'*', desc:'SIX HUNDRED. Hall of fame.', pts:80 },
  // New bonuses
- iceBreaker: { name:'Ice Breaker', emoji:'', desc:'First YOT of the game! The ice is broken.', pts:10 },
- cherryPopper: { name:'Cherry Popper', emoji:'', desc:'YOT on the very first roll of the game. No rerolls. Incredible.', pts:30 },
- singleRollYot: { name:'Single Roll YOT', emoji:'', desc:'Five of a kind with NO rerolls. Pure luck, pure skill.', pts:30 },
- singleRollStr: { name:'Single Roll Straight', emoji:'', desc:'Large Straight on the first roll. No rerolls needed.', pts:10 },
- firstSixes: { name:'First Sixes', emoji:'6ï¸âƒ£', desc:'Scored 3 or more sixes in the Sixes row. Heavy hitter.', pts:10 },
- lastCall: { name:'Last Call', emoji:'', desc:'YOT on the final turn with the row still open. Clutch!', pts:30 },
+    iceBreaker:    { name:'Ice Breaker',      emoji:'*', desc:'First YOT of the game! The ice is broken.', pts:10 },
+  cherryPopper:  { name:'Cherry Popper',    emoji:'*', desc:'YOT on the very first roll of the game. No rerolls. Incredible.', pts:30 },
+  singleRollYot: { name:'Single Roll YOT',  emoji:'*', desc:'Five of a kind with NO rerolls. Pure luck, pure skill.', pts:30 },
+  singleRollStr: { name:'Single Roll Straight', emoji:'*', desc:'Large Straight on the first roll. No rerolls needed.', pts:10 },
+    firstSixes:    { name:'First Sixes',      emoji:'6', desc:'Scored 3 or more sixes in the Sixes row. Heavy hitter.', pts:10 },
+    lastCall:      { name:'Last Call',        emoji:'*', desc:'YOT on the final turn with the row still open. Clutch!', pts:30 },
  // Jail/Shawshank
- jail: { name:'IN JAIL', emoji:'', desc:'Weak first turn! You\'re locked up. -$10 per turn until you score a lower section or 3+ in upper.', pts:0, isPenalty:true },
- shawshank: { name:'SHAWSHANK', emoji:'', desc:'Rolled a YOT while in jail! You broke free!', pts:30 },
+    jail:          { name:'IN JAIL',          emoji:'!', desc:'Weak first turn! You are locked up. -$10 per turn until you score a lower section or 3+ in upper.', pts:0, isPenalty:true },
+    shawshank:     { name:'SHAWSHANK',        emoji:'*', desc:'Rolled a YOT while in jail! You broke free!', pts:30 },
  // Penalties
- firstScratch: { name:'First Scratch', emoji:'', desc:'First zero on the scorecard. Ouch.', pts:-10, isPenalty:true },
- under200: { name:'Under 200', emoji:'', desc:'Total score under 200. Rough game.', pts:-20, isPenalty:true },
+  firstScratch:  { name:'First Scratch',    emoji:'X', desc:'First zero on the scorecard. Ouch.', pts:-10, isPenalty:true },
+    under200:      { name:'Under 200',        emoji:'X', desc:'Total score under 200. Rough game.', pts:-20, isPenalty:true },
 };
 
 // ========================================================
@@ -2964,7 +2964,7 @@ async function select(cat) {
  async function submitAndAdvance() {
  if (mpMode) {
  const {total} = getTotal();
- // Build bonus names for recap — ONLY bonuses earned THIS turn (from pendingBonuses that were just shown)
+ // Build bonus names for recap - ONLY bonuses earned THIS turn (from pendingBonuses that were just shown)
  const turnBonuses = earnedBonuses.filter(k => !bonusesBeforeTurn.includes(k));
  const bonusNames = turnBonuses.filter(k=>BONUS_DEFS[k]).map(k=>{
    const b=BONUS_DEFS[k];
@@ -3058,7 +3058,7 @@ function updateUI() {
  r.classList.add('scored');
  const check = document.createElement('span');
  check.className='sc-check';
- check.textContent=' âœ“';
+ check.textContent=' "';
  nameEl.appendChild(check);
  } else if (rolled) {
  const v = potentials[cat];
@@ -3118,7 +3118,7 @@ function getBonusTip() {
 
  // --- JAIL WARNING on turn 1 ---
  if (round === 1 && rolled && !inJail) {
- return 'âš ï¸ TURN 1: Scoring Chance or an upper with <3 matching = JAIL (-$10/turn). Pick wisely!';
+ return ' TURN 1: Scoring Chance or an upper with <3 matching = JAIL (-$10/turn). Pick wisely!';
  }
 
  // --- JAIL STATUS ---
@@ -3151,7 +3151,7 @@ function getBonusTip() {
  if (!earned.has('menage') && upperFilled.length > 0 && upperFilled.length < 6) {
  const menageTarget = {ones:3,twos:6,threes:9,fours:12,fives:15,sixes:18};
  if (upperFilled.every(c => scores[c] === menageTarget[c]) && upperFilled.length >= 2) {
- return ` MÃ©nage in play! Exactly 3 of each up top so far = +$30. ${upperOpen.length} left.`;
+ return ` Menage in play! Exactly 3 of each up top so far = +$30. ${upperOpen.length} left.`;
  }
  }
 
@@ -3171,8 +3171,8 @@ function getBonusTip() {
  const allCats = [...UPPER, ...LOWER];
  const zeros = allCats.filter(c => scores[c] === 0).length;
  const openSlots = allCats.filter(c => scores[c] === undefined).length;
- if (zeros === 0 && openSlots <= 5) return `âœ¨ Clean Card! No zeros yet. Keep it clean = +$30. ${openSlots} left.`;
- if (zeros === 0 && openSlots > 5) return 'âœ¨ No scratches yet. Clean Card (no zeros) = +$30!';
+ if (zeros === 0 && openSlots <= 5) return ` Clean Card! No zeros yet. Keep it clean = +$30. ${openSlots} left.`;
+ if (zeros === 0 && openSlots > 5) return ' No scratches yet. Clean Card (no zeros) = +$30!';
  }
 
  // --- SCORE TIERS ---
@@ -3191,13 +3191,13 @@ function getBonusTip() {
  // --- EARLY GAME ---
  if (round <= 2) {
  const tips = [
- 'âš ï¸ Turn 1 tip: Scoring Chance or weak upper = JAIL (-$10/turn until you escape)!',
+ ' Turn 1 tip: Scoring Chance or weak upper = JAIL (-$10/turn until you escape)!',
  ' Bonus: Fill ALL upper (63+) before any lower = "Full Dolly" +$20',
  ' Bonus: Fill ALL lower before any upper = "The J-Lo" +$20',
- ' Bonus: Exactly 3 of each upper = "The MÃ©nage" +$30',
+ ' Bonus: Exactly 3 of each upper = "The Menage" +$30',
  ' Bonus: Yahtzee on all ONES = "Single Dot Yot" +$50',
  ' Bonus: YOT on first roll (no rerolls) = "Cherry Popper" +$30',
- 'âœ¨ Bonus: No zeros on the card = "Clean Card" +$30',
+ ' Bonus: No zeros on the card = "Clean Card" +$30',
  ' Bonus: Score 300+ = $20, 400+ = $40, 500+ = $60, 600+ = $80',
  ];
  return tips[Math.floor(Math.random() * tips.length)];
@@ -3675,7 +3675,7 @@ async function checkUrlForGame() {
  lobby.style.display='';
  MP.init();
 
- // Hide tabs and create panel — go straight to join
+ // Hide tabs and create panel - go straight to join
  document.getElementById('lobby-tabs').style.display='none';
  document.getElementById('panel-create').style.display='none';
  document.getElementById('panel-join').style.display='';
