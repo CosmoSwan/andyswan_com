@@ -1170,7 +1170,7 @@ input, button { touch-action: manipulation; }
  <div class="sc-row" data-cat="fours"><span class="sc-name"><span class="sc-icon">âšƒ</span> Fours</span><span class="sc-val" id="v-fours"></span></div>
  <div class="sc-row" data-cat="fives"><span class="sc-name"><span class="sc-icon">âš„</span> Fives</span><span class="sc-val" id="v-fives"></span></div>
  <div class="sc-row" data-cat="sixes"><span class="sc-name"><span class="sc-icon">âš…</span> Sixes</span><span class="sc-val" id="v-sixes"></span></div>
- <div class="sc-row sc-sep"><span class="sc-name">Bonus (â‰¥63)</span><span class="sc-val" id="v-bonus">0/63</span></div>
+ <div class="sc-row sc-sep"><span class="sc-name">Bonus (&ge;63)</span><span class="sc-val" id="v-bonus">0/63</span></div>
  <div class="sc-section-label">Lower Section</div>
  <div class="sc-row" data-cat="three"><span class="sc-name">Three of a Kind</span><span class="sc-val" id="v-three"></span></div>
  <div class="sc-row" data-cat="four"><span class="sc-name">Four of a Kind</span><span class="sc-val" id="v-four"></span></div>
@@ -3325,6 +3325,7 @@ document.addEventListener('keydown', e=>{
 let mpMode = false;
 let mpPollInterval = null;
 let mpGameStarted = false;
+let lastRecapTs = 0; // track which recap we've already shown
 
 const CAT_NAMES_MP = {ones:'Ones',twos:'Twos',threes:'Threes',fours:'Fours',fives:'Fives',sixes:'Sixes',
  three:'Three of a Kind',four:'Four of a Kind',full:'Full House',smstr:'Sm. Straight',lgstr:'Lg. Straight',yahtzee:'YAHTZEE',chance:'Chance'};
@@ -3502,7 +3503,9 @@ async function handleGameUpdate(g) {
 
  if (isMyTurn) {
  watchOverlay.style.display = 'none';
- if (lastAction && lastAction.type === 'turn_end' && lastAction.playerNum !== MP.getMyPlayerNum()) {
+ // Only show recap ONCE per action (check timestamp to avoid re-showing on poll)
+ if (lastAction && lastAction.type === 'turn_end' && lastAction.playerNum !== MP.getMyPlayerNum() && lastAction.ts !== lastRecapTs) {
+ lastRecapTs = lastAction.ts;
  showRecap(lastAction);
  }
  } else {
@@ -3605,27 +3608,35 @@ document.getElementById('btn-lobby-back').addEventListener('click', () => {
 async function checkUrlForGame() {
  const params = new URLSearchParams(window.location.search);
  const code = params.get('game');
- if (code) {
- modeSelect.style.display='none';lobby.style.display='';MP.init();
+ if (!code) return;
 
- // Fetch game to get player names for personalized join screen
- try {
- const {data:g} = window.supabase.createClient('https://urmqudupcwqtpgfuybai.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybXF1ZHVwY3dxdHBnZnV5YmFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NjM0MzksImV4cCI6MjA4NjIzOTQzOX0.MaSGteOF089qFAVbiYEuflETsbWvEsKfX-d_bWGh7SQ').from('games').select('player1_name,player2_name').eq('code',code.toUpperCase()).single();
- if(g){
- document.querySelector('.lobby-title').textContent=`${g.player1_name} invited you!`;
- document.getElementById('join-name').value=g.player2_name||'';
- document.title=`${g.player1_name} v. ${g.player2_name} - Yahtzeeeee!`;
- }
- }catch(e){}
+ modeSelect.style.display='none';
+ lobby.style.display='';
+ MP.init();
 
- document.querySelectorAll('.lobby-tab').forEach(t=>t.classList.remove('active'));
- document.querySelector('.lobby-tab[data-tab="join"]').classList.add('active');
+ // Hide tabs and create panel — go straight to join
+ document.getElementById('lobby-tabs').style.display='none';
  document.getElementById('panel-create').style.display='none';
  document.getElementById('panel-join').style.display='';
  document.getElementById('join-code').value=code.toUpperCase();
- // Hide tabs since they're being invited directly
- document.getElementById('lobby-tabs').style.display='none';
- }
+
+ // Fetch game info for personalized welcome
+ try {
+   const sb = window.supabase.createClient(
+     'https://urmqudupcwqtpgfuybai.supabase.co',
+     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybXF1ZHVwY3dxdHBnZnV5YmFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NjM0MzksImV4cCI6MjA4NjIzOTQzOX0.MaSGteOF089qFAVbiYEuflETsbWvEsKfX-d_bWGh7SQ'
+   );
+   const resp = await sb.from('games').select('player1_name,player2_name').eq('code',code.toUpperCase()).single();
+   const g = resp.data;
+   if (g && g.player1_name) {
+     // Personalized welcome
+     document.querySelector('.lobby-title').innerHTML = `${g.player1_name} challenged you<br>to a game of Yaht!`;
+     document.getElementById('join-name').value = g.player2_name || '';
+     document.getElementById('join-name').placeholder = 'Confirm your name';
+     document.getElementById('join-code').style.display = 'none'; // hide code field, already filled
+     document.title = `${g.player1_name} v. ${g.player2_name} - Yahtzeeeee!`;
+   }
+ } catch(e) { console.log('Could not fetch game info:', e); }
 }
 
 // === INIT ===
