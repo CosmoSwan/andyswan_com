@@ -163,17 +163,12 @@
 
         contact: () => [
             { t: '', c: '' },
-            { t: '  Reach Me', c: 't-head' },
+            { t: '  Find Me', c: 't-head' },
             { t: '', c: '' },
-            { t: '  𝕏 @andyswan      ← this is where the action is', c: 't-cyan t-bold' },
-            { t: '    Hot takes on AI, fintech, building, life.', c: 't-muted' },
-            { t: '    x.com/andyswan', c: 't-muted' },
+            { t: '  𝕏 @andyswan', c: 't-cyan t-bold' },
+            { t: '  x.com/andyswan', c: 't-muted' },
             { t: '', c: '' },
-            { t: '  LinkedIn    linkedin.com/in/andyswan', c: '' },
-            { t: '  GitHub      github.com/andyswan', c: '' },
-            { t: '  Email       andy@andyswan.com', c: '' },
-            { t: '', c: '' },
-            { t: '  Building something ambitious? Let\'s talk.', c: 't-blue' },
+            { t: '  That\'s it. That\'s where it all happens.', c: 't-blue' },
             { t: '', c: '' },
         ],
 

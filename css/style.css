@@ -776,14 +776,7 @@ a.resume-item:hover .resume-arrow {
 .t-bold { font-weight: 700; }
 .t-head { color: var(--blue); font-weight: 700; margin-top: 8px; }
 
-/* ====== CONNECT / X FEATURED ====== */
-.connect-layout {
-    display: grid;
-    grid-template-columns: 1.4fr 1fr;
-    gap: 64px;
-    align-items: start;
-}
-
+/* ====== X FEED ====== */
 .x-intro {
     font-size: 1.05rem;
     color: var(--gray-200);
@@ -821,7 +814,7 @@ a.resume-item:hover .resume-arrow {
     border: 1px solid var(--gray-400);
     border-radius: 12px;
     overflow: hidden;
-    max-height: 500px;
+    max-height: 600px;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--gray-400) transparent;
@@ -829,53 +822,6 @@ a.resume-item:hover .resume-arrow {
 
 .x-embed::-webkit-scrollbar { width: 4px; }
 .x-embed::-webkit-scrollbar-thumb { background: var(--gray-400); border-radius: 2px; }
-
-.connect-side {
-    padding-top: 0;
-}
-
-.connect-links-stacked {
-    display: flex;
-    flex-direction: column;
-    border: 1px solid var(--gray-400);
-    border-radius: 8px;
-    overflow: hidden;
-    margin-bottom: 32px;
-}
-
-.connect-link-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 18px 24px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    transition: background 0.3s ease;
-}
-
-.connect-link-row:last-child {
-    border-bottom: none;
-}
-
-.connect-link-row:hover {
-    background: rgba(0, 180, 255, 0.03);
-}
-
-.connect-link-label {
-    font-size: 0.9rem;
-    font-weight: 500;
-}
-
-.connect-link-handle {
-    font-family: var(--mono);
-    font-size: 0.75rem;
-    color: var(--gray-200);
-}
-
-.connect-cta {
-    font-size: 1rem;
-    color: var(--gray-200);
-    line-height: 1.6;
-}
 
 /* ====== FOOTER ====== */
 .footer {
@@ -936,9 +882,8 @@ a.resume-item:hover .resume-arrow {
     .lab-item-desc {
         display: none;
     }
-    .connect-layout {
-        grid-template-columns: 1fr;
-        gap: 48px;
+    .x-embed {
+        max-height: 500px;
     }
 }
 
