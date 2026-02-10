@@ -3378,7 +3378,8 @@ document.addEventListener('keydown', e=>{
 let mpMode = false;
 let mpPollInterval = null;
 let mpGameStarted = false;
-let lastRecapTs = 0; // track which recap we've already shown
+let lastRecapTs = 0;
+let lobbyPoll = null; // track which recap we've already shown
 
 const CAT_NAMES_MP = {ones:'Ones',twos:'Twos',threes:'Threes',fours:'Fours',fives:'Fives',sixes:'Sixes',
  three:'Three of a Kind',four:'Four of a Kind',full:'Full House',smstr:'Sm. Straight',lgstr:'Lg. Straight',yahtzee:'YAHTZEE',chance:'Chance'};
@@ -3498,12 +3499,23 @@ function showLobbyRoom() {
  });
  };
 
- // Listen for opponent to join (auto-starts)
+ // Listen for opponent to join (auto-starts) — realtime
  MP.setOnUpdate((type, payload) => {
  if (type === 'game_change' && payload.new && payload.new.status === 'playing') {
+ if (lobbyPoll) { clearInterval(lobbyPoll); lobbyPoll = null; }
  startMultiplayerGame();
  }
  });
+
+ // Polling fallback — realtime can miss events on mobile
+ if (lobbyPoll) clearInterval(lobbyPoll);
+ lobbyPoll = setInterval(async () => {
+ const state = await MP.getGameState();
+ if (state && state.game && state.game.status === 'playing') {
+ clearInterval(lobbyPoll); lobbyPoll = null;
+ startMultiplayerGame();
+ }
+ }, 3000);
 }
 
 function startMultiplayerGame() {
@@ -3678,6 +3690,7 @@ document.getElementById('lb-btn-home').addEventListener('click', () => {
 });
 
 document.getElementById('btn-lobby-back').addEventListener('click', () => {
+ if(lobbyPoll){clearInterval(lobbyPoll);lobbyPoll=null;}
  lobby.style.display='none';modeSelect.style.display='';MP.cleanup();
 });
 
