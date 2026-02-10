@@ -1,356 +1,262 @@
 /**
- * Yahtzeeeee Multiplayer Module
- * Async round-based multiplayer via Supabase
+ * Yahtzeeeee Multiplayer V2
+ * 2-player strict alternating turns via Supabase
  */
 const MP = (function() {
 
-    // === SUPABASE CONFIG ===
     const SUPABASE_URL = 'https://urmqudupcwqtpgfuybai.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybXF1ZHVwY3dxdHBnZnV5YmFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NjM0MzksImV4cCI6MjA4NjIzOTQzOX0.MaSGteOF089qFAVbiYEuflETsbWvEsKfX-d_bWGh7SQ';
 
-    let supabase = null;
-    let currentGame = null;
-    let currentPlayer = null;
-    let sessionToken = null;
-    let subscription = null;
-    let onGameUpdate = null; // callback when game state changes
+    let sb = null;
+    let game = null;
+    let me = null;
+    let token = null;
+    let sub = null;
+    let onUpdate = null;
 
-    // === INIT ===
     function init() {
-        if (typeof window.supabase === 'undefined') {
-            console.error('Supabase SDK not loaded');
-            return false;
-        }
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        // Restore session token from localStorage
-        sessionToken = localStorage.getItem('yaht-session');
-        if (!sessionToken) {
-            sessionToken = generateToken();
-            localStorage.setItem('yaht-session', sessionToken);
-        }
+        if (!window.supabase) return false;
+        sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        token = localStorage.getItem('yaht-session');
+        if (!token) { token = crypto.randomUUID(); localStorage.setItem('yaht-session', token); }
         return true;
     }
 
-    // === HELPERS ===
-    function generateToken() {
-        return Array.from(crypto.getRandomValues(new Uint8Array(16)))
-            .map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    function generateCode() {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I confusion
-        let code = '';
-        for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
-        return code;
+    function genCode() {
+        const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let r = ''; for (let i=0;i<6;i++) r+=c[Math.floor(Math.random()*c.length)]; return r;
     }
 
     // === CREATE GAME ===
-    async function createGame(playerName) {
-        if (!supabase) return { error: 'Not initialized' };
+    // Creator enters their name AND the opponent's name
+    async function createGame(myName, opponentName) {
+        const code = genCode();
+        const { data: g, error: e1 } = await sb.from('games').insert({
+            code,
+            creator_token: token,
+            status: 'lobby',
+            max_players: 2,
+            player1_name: myName,
+            player2_name: opponentName,
+            current_turn: null, // will be set on start
+            turn_dice: null,
+            turn_held: null,
+            turn_rolls_left: 3,
+            last_action: null,
+        }).select().single();
+        if (e1) return { error: e1.message };
 
-        const code = generateCode();
+        const { data: p, error: e2 } = await sb.from('players').insert({
+            game_id: g.id, name: myName, session_token: token,
+            scores: {}, bonuses: [], current_round: 1, total_score: 0,
+            jail_penalty: 0, joker_points: 0, player_num: 1,
+        }).select().single();
+        if (e2) return { error: e2.message };
 
-        // Create game
-        const { data: game, error: gErr } = await supabase
-            .from('games')
-            .insert({ code, creator_token: sessionToken, status: 'lobby' })
-            .select()
-            .single();
-
-        if (gErr) return { error: gErr.message };
-
-        // Join as first player
-        const { data: player, error: pErr } = await supabase
-            .from('players')
-            .insert({
-                game_id: game.id,
-                name: playerName,
-                session_token: sessionToken,
-                scores: {},
-                bonuses: [],
-                current_round: 1
-            })
-            .select()
-            .single();
-
-        if (pErr) return { error: pErr.message };
-
-        currentGame = game;
-        currentPlayer = player;
-
-        // Subscribe to realtime updates
-        subscribeToGame(game.id);
-
-        return { game, player, code };
+        game = g; me = p;
+        subscribe(g.id);
+        return { game: g, player: p, code };
     }
 
     // === JOIN GAME ===
     async function joinGame(code, playerName) {
-        if (!supabase) return { error: 'Not initialized' };
-
         code = code.toUpperCase().trim();
+        const { data: g, error: e1 } = await sb.from('games').select('*').eq('code', code).single();
+        if (e1 || !g) return { error: 'Game not found.' };
+        if (g.status !== 'lobby') return { error: 'Game already started.' };
 
-        // Find game
-        const { data: game, error: gErr } = await supabase
-            .from('games')
-            .select('*')
-            .eq('code', code)
-            .single();
+        // Check if already joined
+        const { data: existing } = await sb.from('players').select('*')
+            .eq('game_id', g.id).eq('session_token', token).single();
+        if (existing) { game = g; me = existing; subscribe(g.id); return { game: g, player: existing, rejoined: true }; }
 
-        if (gErr || !game) return { error: 'Game not found. Check your code.' };
-        if (game.status !== 'lobby') return { error: 'Game already in progress.' };
+        // Check not full
+        const { data: players } = await sb.from('players').select('id').eq('game_id', g.id);
+        if (players && players.length >= 2) return { error: 'Game is full.' };
 
-        // Check player count
-        const { data: players } = await supabase
-            .from('players')
-            .select('id')
-            .eq('game_id', game.id);
+        const { data: p, error: e2 } = await sb.from('players').insert({
+            game_id: g.id, name: playerName, session_token: token,
+            scores: {}, bonuses: [], current_round: 1, total_score: 0,
+            jail_penalty: 0, joker_points: 0, player_num: 2,
+        }).select().single();
+        if (e2) return { error: e2.message };
 
-        if (players && players.length >= game.max_players) return { error: 'Game is full.' };
+        game = g; me = p;
+        subscribe(g.id);
 
-        // Check if already in this game
-        const { data: existing } = await supabase
-            .from('players')
-            .select('*')
-            .eq('game_id', game.id)
-            .eq('session_token', sessionToken)
-            .single();
+        // Auto-start: both players are in, start the game. Player 1 goes first.
+        await sb.from('games').update({
+            status: 'playing',
+            current_turn: 1, // player 1 goes first
+            current_round: 1,
+            turn_dice: [0,0,0,0,0],
+            turn_held: [false,false,false,false,false],
+            turn_rolls_left: 3,
+            last_action: JSON.stringify({ type: 'game_started' }),
+        }).eq('id', g.id);
 
-        if (existing) {
-            currentGame = game;
-            currentPlayer = existing;
-            subscribeToGame(game.id);
-            return { game, player: existing, code, rejoined: true };
-        }
-
-        // Join
-        const { data: player, error: pErr } = await supabase
-            .from('players')
-            .insert({
-                game_id: game.id,
-                name: playerName,
-                session_token: sessionToken,
-                scores: {},
-                bonuses: [],
-                current_round: 1
-            })
-            .select()
-            .single();
-
-        if (pErr) return { error: pErr.message };
-
-        currentGame = game;
-        currentPlayer = player;
-
-        subscribeToGame(game.id);
-
-        return { game, player, code };
+        return { game: g, player: p };
     }
 
-    // === START GAME (creator only) ===
-    async function startGame() {
-        if (!currentGame) return { error: 'No game' };
-
-        const { error } = await supabase
-            .from('games')
-            .update({ status: 'playing', current_round: 1 })
-            .eq('id', currentGame.id);
-
-        if (error) return { error: error.message };
-        currentGame.status = 'playing';
-        return { success: true };
+    // === GET STATE ===
+    async function getGameState() {
+        if (!game) return null;
+        const { data: g } = await sb.from('games').select('*').eq('id', game.id).single();
+        if (!g) return null;
+        const { data: players } = await sb.from('players').select('*').eq('game_id', game.id).order('player_num');
+        game = g;
+        const myData = players?.find(p => p.session_token === token);
+        if (myData) me = myData;
+        return { game: g, players: players || [] };
     }
 
-    // === GET PLAYERS ===
     async function getPlayers() {
-        if (!currentGame) return [];
-        const { data } = await supabase
-            .from('players')
-            .select('*')
-            .eq('game_id', currentGame.id)
-            .order('joined_at', { ascending: true });
+        if (!game) return [];
+        const { data } = await sb.from('players').select('*').eq('game_id', game.id).order('player_num');
         return data || [];
     }
 
-    // === SUBMIT ROUND ===
-    async function submitRound(scores, bonuses, jailPenalty, jokerPoints, totalScore, roundNum) {
-        if (!currentPlayer) return { error: 'No player' };
+    // === TURN ACTIONS (pushed to game row so opponent can watch) ===
+    async function pushDiceState(dice, held, rollsLeft) {
+        if (!game) return;
+        await sb.from('games').update({
+            turn_dice: dice,
+            turn_held: held,
+            turn_rolls_left: rollsLeft,
+            last_action: JSON.stringify({ type: 'roll', dice, held, rollsLeft, ts: Date.now() }),
+        }).eq('id', game.id);
+    }
 
-        const { error } = await supabase
-            .from('players')
-            .update({
-                scores,
-                bonuses,
-                jail_penalty: jailPenalty,
-                joker_points: jokerPoints,
-                total_score: totalScore,
-                current_round: roundNum + 1
-            })
-            .eq('id', currentPlayer.id);
+    async function pushHoldState(held) {
+        if (!game) return;
+        await sb.from('games').update({
+            turn_held: held,
+            last_action: JSON.stringify({ type: 'hold', held, ts: Date.now() }),
+        }).eq('id', game.id);
+    }
 
-        if (error) return { error: error.message };
+    // === END TURN (score a category) ===
+    async function endTurn(scores, bonuses, jailPenalty, jokerPoints, totalScore, roundNum, cat, pts, earnedBonusNames) {
+        if (!me) return { error: 'No player' };
 
-        currentPlayer.current_round = roundNum + 1;
+        // Update player scores
+        await sb.from('players').update({
+            scores, bonuses,
+            jail_penalty: jailPenalty,
+            joker_points: jokerPoints,
+            total_score: totalScore,
+            current_round: roundNum + 1,
+        }).eq('id', me.id);
 
-        // Small delay to let DB propagate, then check
-        await new Promise(r => setTimeout(r, 500));
+        me.current_round = roundNum + 1;
+        me.total_score = totalScore;
+        me.scores = scores;
 
-        await tryAdvanceRound(roundNum);
+        // Determine next turn
+        const myNum = me.player_num;
+        const nextPlayerNum = myNum === 1 ? 2 : 1;
+
+        // Check if game is over (both players done 13 rounds)
+        const players = await getPlayers();
+        const otherPlayer = players.find(p => p.player_num === nextPlayerNum);
+        const myDone = roundNum + 1 > 13;
+        const otherDone = otherPlayer && otherPlayer.current_round > 13;
+
+        // Build recap
+        const recap = {
+            type: 'turn_end',
+            playerName: me.name,
+            playerNum: myNum,
+            cat, pts,
+            totalScore,
+            bonuses: earnedBonusNames || [],
+            ts: Date.now(),
+        };
+
+        if (myDone && otherDone) {
+            // Game over
+            await sb.from('games').update({
+                status: 'finished',
+                current_turn: 0,
+                last_action: JSON.stringify(recap),
+            }).eq('id', game.id);
+        } else if (myDone) {
+            // I'm done but other player still has rounds
+            await sb.from('games').update({
+                current_turn: nextPlayerNum,
+                turn_dice: [0,0,0,0,0],
+                turn_held: [false,false,false,false,false],
+                turn_rolls_left: 3,
+                last_action: JSON.stringify(recap),
+            }).eq('id', game.id);
+        } else if (otherDone) {
+            // Other is done, back to me
+            await sb.from('games').update({
+                current_turn: myNum,
+                turn_dice: [0,0,0,0,0],
+                turn_held: [false,false,false,false,false],
+                turn_rolls_left: 3,
+                last_action: JSON.stringify(recap),
+            }).eq('id', game.id);
+        } else {
+            // Normal: switch to other player
+            await sb.from('games').update({
+                current_turn: nextPlayerNum,
+                turn_dice: [0,0,0,0,0],
+                turn_held: [false,false,false,false,false],
+                turn_rolls_left: 3,
+                last_action: JSON.stringify(recap),
+            }).eq('id', game.id);
+        }
 
         return { success: true };
     }
 
-    // Separated so polling can also call this
-    async function tryAdvanceRound(roundNum) {
-        if (!currentGame) return;
-
-        // Re-fetch fresh player data
-        const players = await getPlayers();
-        const allDone = players.every(p => p.current_round > roundNum);
-
-        if (allDone) {
-            // Re-fetch game to avoid stale current_round
-            const { data: freshGame } = await supabase
-                .from('games')
-                .select('current_round, status')
-                .eq('id', currentGame.id)
-                .single();
-
-            if (!freshGame) return;
-
-            // Only advance if the game hasn't already been advanced
-            if (freshGame.current_round <= roundNum) {
-                const nextRound = roundNum + 1;
-                if (nextRound > 13) {
-                    await supabase.from('games').update({ status: 'finished', current_round: 14 }).eq('id', currentGame.id);
-                } else {
-                    await supabase.from('games').update({ current_round: nextRound }).eq('id', currentGame.id);
-                }
-                console.log(`[MP] Advanced game to round ${nextRound}`);
-            }
-        }
-    }
-
-    // === GET GAME STATE (always fresh from DB) ===
-    async function getGameState() {
-        if (!currentGame) return null;
-
-        const { data: game } = await supabase
-            .from('games')
-            .select('*')
-            .eq('id', currentGame.id)
-            .single();
-
-        if (!game) return null;
-
-        const players = await getPlayers();
-
-        // Update local state from DB
-        currentGame = game;
-
-        // Refresh our own player state from DB too
-        const me = players.find(p => p.session_token === sessionToken);
-        if (me) currentPlayer = me;
-
-        return { game, players };
-    }
-
-    // === REALTIME SUBSCRIPTION ===
-    function subscribeToGame(gameId) {
-        if (subscription) subscription.unsubscribe();
-
-        subscription = supabase
-            .channel(`game-${gameId}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `game_id=eq.${gameId}` },
-                (payload) => { if (onGameUpdate) onGameUpdate('player_change', payload); })
+    // === REALTIME ===
+    function subscribe(gameId) {
+        if (sub) sub.unsubscribe();
+        sub = sb.channel(`game-${gameId}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
-                (payload) => { if (onGameUpdate) onGameUpdate('game_change', payload); })
+                (payload) => { if (onUpdate) onUpdate('game_change', payload); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `game_id=eq.${gameId}` },
+                (payload) => { if (onUpdate) onUpdate('player_change', payload); })
             .subscribe();
     }
 
-    function setOnGameUpdate(callback) {
-        onGameUpdate = callback;
+    function setOnUpdate(cb) { onUpdate = cb; }
+
+    function isMyTurn() {
+        return game && me && game.current_turn === me.player_num;
     }
 
-    // === REJOIN CHECK ===
-    async function checkExistingGame() {
-        const savedGameId = localStorage.getItem('yaht-game-id');
-        if (!savedGameId) return null;
-
-        const { data: game } = await supabase
-            .from('games')
-            .select('*')
-            .eq('id', savedGameId)
-            .single();
-
-        if (!game || game.status === 'finished') {
-            localStorage.removeItem('yaht-game-id');
-            return null;
-        }
-
-        const { data: player } = await supabase
-            .from('players')
-            .select('*')
-            .eq('game_id', game.id)
-            .eq('session_token', sessionToken)
-            .single();
-
-        if (!player) {
-            localStorage.removeItem('yaht-game-id');
-            return null;
-        }
-
-        currentGame = game;
-        currentPlayer = player;
-        subscribeToGame(game.id);
-
-        return { game, player };
+    function getMyPlayerNum() { return me?.player_num; }
+    function getOpponentName() {
+        if (!game || !me) return '';
+        return me.player_num === 1 ? game.player2_name : game.player1_name;
     }
-
-    function saveGameId() {
-        if (currentGame) localStorage.setItem('yaht-game-id', currentGame.id);
+    function getMatchTitle() {
+        if (!game) return '';
+        return `${game.player1_name} v. ${game.player2_name}`;
     }
-
-    function isCreator() {
-        return currentGame && currentGame.creator_token === sessionToken;
-    }
-
-    function isMultiplayer() {
-        return currentGame !== null;
-    }
-
-    function getCode() {
-        return currentGame ? currentGame.code : null;
-    }
-
-    function getMyPlayer() {
-        return currentPlayer;
-    }
+    function isCreator() { return game && game.creator_token === token; }
+    function isMultiplayer() { return game !== null; }
+    function getCode() { return game?.code; }
+    function getMyPlayer() { return me; }
+    function getGame() { return game; }
+    function saveGameId() { if (game) localStorage.setItem('yaht-game-id', game.id); }
 
     function cleanup() {
-        if (subscription) subscription.unsubscribe();
-        currentGame = null;
-        currentPlayer = null;
+        if (sub) sub.unsubscribe();
+        game = null; me = null;
         localStorage.removeItem('yaht-game-id');
     }
 
     return {
-        init,
-        createGame,
-        joinGame,
-        startGame,
-        getPlayers,
-        submitRound,
-        tryAdvanceRound,
-        getGameState,
-        setOnGameUpdate,
-        checkExistingGame,
-        saveGameId,
-        isCreator,
-        isMultiplayer,
-        getCode,
-        getMyPlayer,
-        cleanup,
+        init, createGame, joinGame, getGameState, getPlayers,
+        pushDiceState, pushHoldState, endTurn,
+        setOnUpdate, subscribe,
+        isMyTurn, getMyPlayerNum, getOpponentName, getMatchTitle,
+        isCreator, isMultiplayer, getCode, getMyPlayer, getGame,
+        saveGameId, cleanup,
     };
 })();

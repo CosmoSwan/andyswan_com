@@ -234,7 +234,7 @@ input, button { touch-action: manipulation; }
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.4);
 }
 
-/* Pip positions for each value — using grid areas */
+/* Pip positions for each value â€” using grid areas */
 .die[data-value="0"] .pip { background: transparent; }
 
 .held-badge {
@@ -654,7 +654,7 @@ input, button { touch-action: manipulation; }
 }
 .bonus-dismiss:hover { background: var(--gold); color: var(--brown); }
 
-/* Bonus canvas — full screen behind the card */
+/* Bonus canvas â€” full screen behind the card */
 #bonus-canvas {
     position: fixed;
     inset: 0;
@@ -822,10 +822,37 @@ input, button { touch-action: manipulation; }
 .lobby-back { background:none;border:none;font-family:var(--mono);font-size:0.75rem;color:var(--text-faint);cursor:pointer;margin-top:12px; }
 .lobby-back:hover { color:var(--cream); }
 
+/* Lobby match title */
+.lobby-match-title { font-family:var(--serif);font-size:1.4rem;color:var(--gold-light);margin-bottom:16px; }
+
 /* === MP STATUS BAR === */
-.mp-bar { position:relative;z-index:5;display:flex;justify-content:center;gap:16px;padding:8px 20px;background:rgba(0,0,0,0.2);font-family:var(--mono);font-size:0.7rem; }
-.mp-bar-code { color:var(--gold); }
-.mp-bar-status { color:var(--text-dim); }
+.mp-bar { position:relative;z-index:5;display:flex;justify-content:center;gap:16px;padding:8px 20px;background:rgba(0,0,0,0.25);font-family:var(--mono);font-size:0.7rem;align-items:center; }
+.mp-bar-title { color:var(--gold);font-weight:600; }
+.mp-bar-turn { color:var(--teal); }
+
+/* === WATCH OVERLAY (opponent's turn) === */
+.watch-overlay { position:fixed;inset:0;z-index:150;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px); }
+.watch-card { text-align:center;padding:40px;background:rgba(0,0,0,0.5);border:1px solid rgba(78,205,196,0.2);border-radius:20px;max-width:420px;width:90%; }
+.watch-title { font-family:var(--serif);font-size:1.5rem;color:var(--teal);margin-bottom:20px; }
+.watch-dice { display:flex;justify-content:center;gap:10px;margin-bottom:16px; }
+.watch-die { width:50px;height:50px;background:linear-gradient(145deg,#faf5eb,#e8dfd0);border-radius:10px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:7px;gap:1px; }
+.watch-die.held { box-shadow:0 0 0 2px var(--teal); }
+.watch-pip { width:100%;height:100%;border-radius:50%;background:transparent; }
+.watch-pip.on { background:#2a2a2a; }
+.watch-status { font-family:var(--mono);font-size:0.8rem;color:var(--text-dim);margin-bottom:8px; }
+.watch-dots { display:flex;justify-content:center;gap:4px; }
+.watch-dots span { width:6px;height:6px;border-radius:50%;background:var(--teal);animation:wait-pulse 1s ease-in-out infinite; }
+.watch-dots span:nth-child(2){animation-delay:0.2s} .watch-dots span:nth-child(3){animation-delay:0.4s}
+
+/* === RECAP OVERLAY === */
+.recap-overlay { position:fixed;inset:0;z-index:155;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px); }
+.recap-card { text-align:center;padding:36px;background:rgba(0,0,0,0.5);border:1px solid rgba(212,165,55,0.2);border-radius:20px;max-width:400px;width:90%;animation:pop-in 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+.recap-title { font-family:var(--serif);font-size:1.3rem;color:var(--gold-light);margin-bottom:12px; }
+.recap-detail { font-family:var(--mono);font-size:0.8rem;color:var(--text-dim);line-height:1.8;margin-bottom:20px; }
+.recap-detail .recap-score { color:var(--cream);font-weight:600; }
+.recap-detail .recap-bonus { color:var(--gold);font-weight:600; }
+.recap-btn { font-family:var(--sans);font-size:1rem;font-weight:600;padding:12px 36px;border:none;border-radius:50px;background:linear-gradient(135deg,var(--gold-light),var(--gold));color:var(--brown);cursor:pointer;transition:all 0.2s; }
+.recap-btn:hover { transform:translateY(-2px);box-shadow:0 6px 20px rgba(212,165,55,0.4); }
 
 /* === WAITING OVERLAY === */
 .wait-overlay {
@@ -963,7 +990,7 @@ input, button { touch-action: manipulation; }
 </head>
 <body>
 
-<a href="/" class="back">← andyswan.com</a>
+<a href="/" class="back">â† andyswan.com</a>
 
 <canvas class="confetti-canvas" id="confetti"></canvas>
 <canvas id="bonus-canvas"></canvas>
@@ -986,75 +1013,82 @@ input, button { touch-action: manipulation; }
         <p class="mode-sub">$1 per point. Roll. Hold. Cash out.</p>
         <div class="mode-btns">
             <button class="mode-btn mode-btn-solo" id="btn-solo">Solo Game</button>
-            <button class="mode-btn mode-btn-mp" id="btn-mp">Multiplayer</button>
+            <button class="mode-btn mode-btn-mp" id="btn-mp">Challenge a Friend</button>
         </div>
     </div>
 </div>
 
-<!-- ====== MULTIPLAYER LOBBY ====== -->
+<!-- ====== MULTIPLAYER LOBBY V2 ====== -->
 <div class="lobby" id="lobby" style="display:none">
     <div class="lobby-inner">
-        <h2 class="lobby-title">Multiplayer</h2>
+        <h2 class="lobby-title">1v1 Challenge</h2>
 
-        <!-- Create / Join tabs -->
         <div class="lobby-tabs" id="lobby-tabs">
-            <button class="lobby-tab active" data-tab="create">Create Game</button>
-            <button class="lobby-tab" data-tab="join">Join Game</button>
+            <button class="lobby-tab active" data-tab="create">Create</button>
+            <button class="lobby-tab" data-tab="join">Join</button>
         </div>
 
-        <!-- Create panel -->
+        <!-- Create: enter YOUR name and OPPONENT name -->
         <div class="lobby-panel" id="panel-create">
-            <input type="text" class="lobby-input" id="create-name" placeholder="Your nickname" maxlength="16" autocomplete="off">
-            <button class="lobby-go" id="btn-create">Create</button>
+            <input type="text" class="lobby-input" id="create-myname" placeholder="Your name" maxlength="16" autocomplete="off">
+            <input type="text" class="lobby-input" id="create-oppname" placeholder="Opponent's name" maxlength="16" autocomplete="off">
+            <button class="lobby-go" id="btn-create">Create Challenge</button>
         </div>
 
-        <!-- Join panel -->
+        <!-- Join: enter code and your name -->
         <div class="lobby-panel" id="panel-join" style="display:none">
-            <input type="text" class="lobby-input" id="join-code" placeholder="Game code (e.g. SWAN42)" maxlength="6" autocomplete="off" style="text-transform:uppercase">
-            <input type="text" class="lobby-input" id="join-name" placeholder="Your nickname" maxlength="16" autocomplete="off">
-            <button class="lobby-go" id="btn-join">Join</button>
+            <input type="text" class="lobby-input" id="join-code" placeholder="Game code" maxlength="6" autocomplete="off" style="text-transform:uppercase">
+            <input type="text" class="lobby-input" id="join-name" placeholder="Your name" maxlength="16" autocomplete="off">
+            <button class="lobby-go" id="btn-join">Join Game</button>
         </div>
 
         <div class="lobby-error" id="lobby-error"></div>
 
-        <!-- Waiting room (shown after create/join) -->
+        <!-- Waiting room -->
         <div class="lobby-room" id="lobby-room" style="display:none">
+            <div class="lobby-match-title" id="lobby-match-title"></div>
             <div class="lobby-code-display">
-                <span class="lobby-code-label">Share this code:</span>
+                <span class="lobby-code-label">Send this code to your opponent:</span>
                 <span class="lobby-code" id="lobby-code-val"></span>
-                <button class="lobby-copy" id="btn-copy-code" title="Copy link">Copy Link</button>
+                <button class="lobby-copy" id="btn-copy-code">Copy Link</button>
             </div>
-            <div class="lobby-players" id="lobby-players"></div>
-            <button class="lobby-notify-btn" id="btn-notify" style="display:none">🔔 Enable Turn Notifications</button>
-            <button class="lobby-start" id="btn-start" style="display:none">Start Game</button>
             <div class="lobby-wait" id="lobby-wait">
                 <div class="lobby-wait-dots"><span></span><span></span><span></span></div>
-                <p id="lobby-wait-msg">Send the code to your friends...</p>
+                <p id="lobby-wait-msg"></p>
             </div>
+            <button class="lobby-notify-btn" id="btn-notify" style="display:none">ðŸ”” Enable Notifications</button>
         </div>
 
-        <button class="lobby-back" id="btn-lobby-back">← Back</button>
+        <button class="lobby-back" id="btn-lobby-back">â† Back</button>
     </div>
 </div>
 
-<!-- ====== MP STATUS BAR (shown during multiplayer game) ====== -->
+<!-- ====== MP STATUS BAR ====== -->
 <div class="mp-bar" id="mp-bar" style="display:none">
-    <span class="mp-bar-code" id="mp-bar-code"></span>
-    <span class="mp-bar-status" id="mp-bar-status"></span>
+    <span class="mp-bar-title" id="mp-bar-title"></span>
+    <span class="mp-bar-turn" id="mp-bar-turn"></span>
 </div>
 
-<!-- ====== WAITING OVERLAY (between rounds) ====== -->
-<div class="wait-overlay" id="wait-overlay" style="display:none">
-    <div class="wait-card">
-        <div class="wait-title" id="wait-title">Round Complete!</div>
-        <div class="wait-subtitle" id="wait-subtitle"></div>
-        <div class="wait-scores" id="wait-scores"></div>
-        <div class="wait-msg" id="wait-msg">Waiting for other players...</div>
-        <div class="wait-dots" id="wait-dots"><span></span><span></span><span></span></div>
+<!-- ====== OPPONENT TURN OVERLAY (watching them play) ====== -->
+<div class="watch-overlay" id="watch-overlay" style="display:none">
+    <div class="watch-card">
+        <div class="watch-title" id="watch-title">Opponent's Turn</div>
+        <div class="watch-dice" id="watch-dice"></div>
+        <div class="watch-status" id="watch-status"></div>
+        <div class="watch-dots"><span></span><span></span><span></span></div>
     </div>
 </div>
 
-<!-- ====== MP LEADERBOARD (end of game) ====== -->
+<!-- ====== TURN RECAP ====== -->
+<div class="recap-overlay" id="recap-overlay" style="display:none">
+    <div class="recap-card">
+        <div class="recap-title" id="recap-title"></div>
+        <div class="recap-detail" id="recap-detail"></div>
+        <button class="recap-btn" id="recap-btn">My Turn!</button>
+    </div>
+</div>
+
+<!-- ====== MP LEADERBOARD ====== -->
 <div class="mp-leaderboard" id="mp-leaderboard" style="display:none">
     <div class="lb-inner">
         <h2 class="lb-title" id="lb-title">Final Standings</h2>
@@ -1071,7 +1105,7 @@ input, button { touch-action: manipulation; }
 
     <div class="status">
         <div class="status-score" id="total-display">$0</div>
-        <span class="jail-badge" id="jail-badge">🔒 JAIL</span>
+        <span class="jail-badge" id="jail-badge">ðŸ”’ JAIL</span>
         <div class="rounds" id="round-dots"></div>
         <div class="status-round">Round <span id="round-num">1</span>/13</div>
     </div>
@@ -1119,21 +1153,21 @@ input, button { touch-action: manipulation; }
     <div class="scorecard" id="scorecard">
         <div class="sc-header"><span>Category</span><span>Score</span></div>
         <div class="sc-section-label">Upper Section</div>
-        <div class="sc-row" data-cat="ones"><span class="sc-name"><span class="sc-icon">⚀</span> Ones</span><span class="sc-val" id="v-ones">—</span></div>
-        <div class="sc-row" data-cat="twos"><span class="sc-name"><span class="sc-icon">⚁</span> Twos</span><span class="sc-val" id="v-twos">—</span></div>
-        <div class="sc-row" data-cat="threes"><span class="sc-name"><span class="sc-icon">⚂</span> Threes</span><span class="sc-val" id="v-threes">—</span></div>
-        <div class="sc-row" data-cat="fours"><span class="sc-name"><span class="sc-icon">⚃</span> Fours</span><span class="sc-val" id="v-fours">—</span></div>
-        <div class="sc-row" data-cat="fives"><span class="sc-name"><span class="sc-icon">⚄</span> Fives</span><span class="sc-val" id="v-fives">—</span></div>
-        <div class="sc-row" data-cat="sixes"><span class="sc-name"><span class="sc-icon">⚅</span> Sixes</span><span class="sc-val" id="v-sixes">—</span></div>
-        <div class="sc-row sc-sep"><span class="sc-name">Bonus (≥63)</span><span class="sc-val" id="v-bonus">0/63</span></div>
+        <div class="sc-row" data-cat="ones"><span class="sc-name"><span class="sc-icon">âš€</span> Ones</span><span class="sc-val" id="v-ones">â€”</span></div>
+        <div class="sc-row" data-cat="twos"><span class="sc-name"><span class="sc-icon">âš</span> Twos</span><span class="sc-val" id="v-twos">â€”</span></div>
+        <div class="sc-row" data-cat="threes"><span class="sc-name"><span class="sc-icon">âš‚</span> Threes</span><span class="sc-val" id="v-threes">â€”</span></div>
+        <div class="sc-row" data-cat="fours"><span class="sc-name"><span class="sc-icon">âšƒ</span> Fours</span><span class="sc-val" id="v-fours">â€”</span></div>
+        <div class="sc-row" data-cat="fives"><span class="sc-name"><span class="sc-icon">âš„</span> Fives</span><span class="sc-val" id="v-fives">â€”</span></div>
+        <div class="sc-row" data-cat="sixes"><span class="sc-name"><span class="sc-icon">âš…</span> Sixes</span><span class="sc-val" id="v-sixes">â€”</span></div>
+        <div class="sc-row sc-sep"><span class="sc-name">Bonus (â‰¥63)</span><span class="sc-val" id="v-bonus">0/63</span></div>
         <div class="sc-section-label">Lower Section</div>
-        <div class="sc-row" data-cat="three"><span class="sc-name">Three of a Kind</span><span class="sc-val" id="v-three">—</span></div>
-        <div class="sc-row" data-cat="four"><span class="sc-name">Four of a Kind</span><span class="sc-val" id="v-four">—</span></div>
-        <div class="sc-row" data-cat="full"><span class="sc-name">Full House</span><span class="sc-val" id="v-full">—</span></div>
-        <div class="sc-row" data-cat="smstr"><span class="sc-name">Sm. Straight</span><span class="sc-val" id="v-smstr">—</span></div>
-        <div class="sc-row" data-cat="lgstr"><span class="sc-name">Lg. Straight</span><span class="sc-val" id="v-lgstr">—</span></div>
-        <div class="sc-row" data-cat="yahtzee"><span class="sc-name">🎲 YAHTZEE!</span><span class="sc-val" id="v-yahtzee">—</span></div>
-        <div class="sc-row" data-cat="chance"><span class="sc-name">Chance</span><span class="sc-val" id="v-chance">—</span></div>
+        <div class="sc-row" data-cat="three"><span class="sc-name">Three of a Kind</span><span class="sc-val" id="v-three">â€”</span></div>
+        <div class="sc-row" data-cat="four"><span class="sc-name">Four of a Kind</span><span class="sc-val" id="v-four">â€”</span></div>
+        <div class="sc-row" data-cat="full"><span class="sc-name">Full House</span><span class="sc-val" id="v-full">â€”</span></div>
+        <div class="sc-row" data-cat="smstr"><span class="sc-name">Sm. Straight</span><span class="sc-val" id="v-smstr">â€”</span></div>
+        <div class="sc-row" data-cat="lgstr"><span class="sc-name">Lg. Straight</span><span class="sc-val" id="v-lgstr">â€”</span></div>
+        <div class="sc-row" data-cat="yahtzee"><span class="sc-name">ðŸŽ² YAHTZEE!</span><span class="sc-val" id="v-yahtzee">â€”</span></div>
+        <div class="sc-row" data-cat="chance"><span class="sc-name">Chance</span><span class="sc-val" id="v-chance">â€”</span></div>
         <div class="sc-row sc-sep"><span class="sc-name">Total</span><span class="sc-val" id="v-total">0</span></div>
     </div>
 
@@ -1152,7 +1186,7 @@ input, button { touch-action: manipulation; }
     </div>
 
     <div class="footer">
-        Built by <a href="/">Andy Swan</a> · Press Space to roll · 1-5 to hold
+        Built by <a href="/">Andy Swan</a> Â· Press Space to roll Â· 1-5 to hold
     </div>
 </div>
 
@@ -1308,24 +1342,24 @@ function getTotal() {
 }
 
 // === HYPE MESSAGES ===
-const YOT_NAMES = { 1:'Single Dot Yot! ⚀', 2:'Duck Yot! 🦆', 3:'Bird Yot! 🐦', 4:'Box Yot! 📦', 5:'Fiver! ✋', 6:'Dot Yot! ⚅' };
+const YOT_NAMES = { 1:'Single Dot Yot! âš€', 2:'Duck Yot! ðŸ¦†', 3:'Bird Yot! ðŸ¦', 4:'Box Yot! ðŸ“¦', 5:'Fiver! âœ‹', 6:'Dot Yot! âš…' };
 
 const HYPES = {
-    yahtzee: ['🎲 YAHTZEEEEE!!!', '💥 ABSOLUTE LEGEND!', '🔥 FIFTY POINTS!', '🏆 PERFECTION!'],
-    joker: ['🃏 JOKER! +$100! Pick ANY row!', '🃏 WILD CARD! +$100 bonus!', '🃏 JOKER ACTIVATED! +$100!'],
-    four: ['Four of a kind! 🔥', 'QUAD DAMAGE!', 'So close to Yahtzee...'],
-    three: ['Trips! Nice.', 'Three of a kind 👌'],
-    full: ['Full House! 🏠', 'Boats & floats!'],
-    dreamboat: ['🚢 DREAM BOAT! Full House 1s & 2s!'],
-    lgstr: ['Large Straight! 🎯', 'FIVE IN A ROW!'],
-    smstr: ['Small Straight 🎯', 'Four in a row!'],
-    paigrow: ['Pai Gow! 🀄 Sequential with a gap...'],
-    rerack: ['RERACK! 🔄 All five rerolled!'],
-    ssyot: ['SS YOT! 🎲 Held 2, rolled the rest!'],
-    bad: ['Oof. 😬', 'Rough roll.', 'We\'ve all been there.', 'Pain.', 'The dice gods are cruel.'],
-    good: ['Not bad!', 'Working with something!', 'Options! 💰'],
-    start: ['Let\'s go! 🎲', 'Roll \'em!', 'Feeling lucky?'],
-    jailwarn: ['⚠️ Careful on Turn 1 — weak play = Jail!'],
+    yahtzee: ['ðŸŽ² YAHTZEEEEE!!!', 'ðŸ’¥ ABSOLUTE LEGEND!', 'ðŸ”¥ FIFTY POINTS!', 'ðŸ† PERFECTION!'],
+    joker: ['ðŸƒ JOKER! +$100! Pick ANY row!', 'ðŸƒ WILD CARD! +$100 bonus!', 'ðŸƒ JOKER ACTIVATED! +$100!'],
+    four: ['Four of a kind! ðŸ”¥', 'QUAD DAMAGE!', 'So close to Yahtzee...'],
+    three: ['Trips! Nice.', 'Three of a kind ðŸ‘Œ'],
+    full: ['Full House! ðŸ ', 'Boats & floats!'],
+    dreamboat: ['ðŸš¢ DREAM BOAT! Full House 1s & 2s!'],
+    lgstr: ['Large Straight! ðŸŽ¯', 'FIVE IN A ROW!'],
+    smstr: ['Small Straight ðŸŽ¯', 'Four in a row!'],
+    paigrow: ['Pai Gow! ðŸ€„ Sequential with a gap...'],
+    rerack: ['RERACK! ðŸ”„ All five rerolled!'],
+    ssyot: ['SS YOT! ðŸŽ² Held 2, rolled the rest!'],
+    bad: ['Oof. ðŸ˜¬', 'Rough roll.', 'We\'ve all been there.', 'Pain.', 'The dice gods are cruel.'],
+    good: ['Not bad!', 'Working with something!', 'Options! ðŸ’°'],
+    start: ['Let\'s go! ðŸŽ²', 'Roll \'em!', 'Feeling lucky?'],
+    jailwarn: ['âš ï¸ Careful on Turn 1 â€” weak play = Jail!'],
 };
 
 function hype(key) {
@@ -1344,7 +1378,7 @@ function analyzeRoll() {
     const c = cnt(dice), mx = Math.max(...c.slice(1));
     const u=[...new Set(dice)].sort().join('');
 
-    // YOT — with named variant
+    // YOT â€” with named variant
     if (mx===5) {
         const val = dice[0];
         const name = YOT_NAMES[val] || 'YAHTZEEEEE!!!';
@@ -1399,6 +1433,7 @@ function analyzeRoll() {
 // === ROLL ===
 function roll() {
     if (rollsLeft<=0) return;
+    if (mpMode && !MP.isMyTurn()) return;
 
     // Track held state before roll for SS YOT detection
     heldBeforeLastRoll = [...held];
@@ -1435,6 +1470,9 @@ function roll() {
 
     setTimeout(()=>{ if(!jokerActive) analyzeRoll(); },500);
     updateUI();
+
+    // Push dice state to Supabase so opponent can watch
+    if (mpMode) MP.pushDiceState(dice, held, rollsLeft);
 }
 
 // === HOLD ===
@@ -1442,33 +1480,36 @@ function hold(i) {
     if (!rolled) return;
     held[i]=!held[i];
     wraps[i].classList.toggle('held');
+
+    // Push hold state to Supabase
+    if (mpMode) MP.pushHoldState(held);
 }
 
 // === BONUS DEFINITIONS ===
 const BONUS_DEFS = {
     // Existing (adjusted to $10/ASTI)
-    dolly:         { name:'The Full Dolly',   emoji:'🎀', desc:'Filled the ENTIRE top (with bonus!) before touching the bottom. Dolly would be proud.', pts:20 },
-    jlo:           { name:'The J-Lo',         emoji:'🍑', desc:'Filled the ENTIRE bottom with nothing up top. That\'s a legendary bottom.', pts:20 },
-    menage:        { name:'The Ménage',       emoji:'💋', desc:'Exactly three of everything up top. A perfect ménage à trois across the board.', pts:30 },
-    singledot:     { name:'Single Dot Yot',   emoji:'🏇', desc:'Yahtzee on ONES! Five single dots cross the finish line!', pts:50 },
-    cleancard:     { name:'Clean Card',       emoji:'✨', desc:'Not a single zero on the scorecard. Spotless. Immaculate.', pts:30 },
-    threeHundred:  { name:'300 Club',         emoji:'🚀', desc:'Three hundred plus! You are operating at an elite level.', pts:20 },
-    fourHundred:   { name:'400 Club',         emoji:'🚀', desc:'Four hundred! Now we\'re cooking.', pts:40 },
-    fiveHundred:   { name:'500 Club',         emoji:'🚀', desc:'Five hundred. Absolutely dominant.', pts:60 },
-    sixHundred:    { name:'600 Club',         emoji:'🚀', desc:'SIX HUNDRED. Hall of fame.', pts:80 },
+    dolly:         { name:'The Full Dolly',   emoji:'ðŸŽ€', desc:'Filled the ENTIRE top (with bonus!) before touching the bottom. Dolly would be proud.', pts:20 },
+    jlo:           { name:'The J-Lo',         emoji:'ðŸ‘', desc:'Filled the ENTIRE bottom with nothing up top. That\'s a legendary bottom.', pts:20 },
+    menage:        { name:'The MÃ©nage',       emoji:'ðŸ’‹', desc:'Exactly three of everything up top. A perfect mÃ©nage Ã  trois across the board.', pts:30 },
+    singledot:     { name:'Single Dot Yot',   emoji:'ðŸ‡', desc:'Yahtzee on ONES! Five single dots cross the finish line!', pts:50 },
+    cleancard:     { name:'Clean Card',       emoji:'âœ¨', desc:'Not a single zero on the scorecard. Spotless. Immaculate.', pts:30 },
+    threeHundred:  { name:'300 Club',         emoji:'ðŸš€', desc:'Three hundred plus! You are operating at an elite level.', pts:20 },
+    fourHundred:   { name:'400 Club',         emoji:'ðŸš€', desc:'Four hundred! Now we\'re cooking.', pts:40 },
+    fiveHundred:   { name:'500 Club',         emoji:'ðŸš€', desc:'Five hundred. Absolutely dominant.', pts:60 },
+    sixHundred:    { name:'600 Club',         emoji:'ðŸš€', desc:'SIX HUNDRED. Hall of fame.', pts:80 },
     // New bonuses
-    iceBreaker:    { name:'Ice Breaker',      emoji:'🧊', desc:'First YOT of the game! The ice is broken.', pts:10 },
-    cherryPopper:  { name:'Cherry Popper',    emoji:'🍒', desc:'YOT on the very first roll of the game. No rerolls. Incredible.', pts:30 },
-    singleRollYot: { name:'Single Roll YOT',  emoji:'🎯', desc:'Five of a kind with NO rerolls. Pure luck, pure skill.', pts:30 },
-    singleRollStr: { name:'Single Roll Straight', emoji:'🎯', desc:'Large Straight on the first roll. No rerolls needed.', pts:10 },
-    firstSixes:    { name:'First Sixes',      emoji:'6️⃣', desc:'Scored 3 or more sixes in the Sixes row. Heavy hitter.', pts:10 },
-    lastCall:      { name:'Last Call',        emoji:'🔔', desc:'YOT on the final turn with the row still open. Clutch!', pts:30 },
+    iceBreaker:    { name:'Ice Breaker',      emoji:'ðŸ§Š', desc:'First YOT of the game! The ice is broken.', pts:10 },
+    cherryPopper:  { name:'Cherry Popper',    emoji:'ðŸ’', desc:'YOT on the very first roll of the game. No rerolls. Incredible.', pts:30 },
+    singleRollYot: { name:'Single Roll YOT',  emoji:'ðŸŽ¯', desc:'Five of a kind with NO rerolls. Pure luck, pure skill.', pts:30 },
+    singleRollStr: { name:'Single Roll Straight', emoji:'ðŸŽ¯', desc:'Large Straight on the first roll. No rerolls needed.', pts:10 },
+    firstSixes:    { name:'First Sixes',      emoji:'6ï¸âƒ£', desc:'Scored 3 or more sixes in the Sixes row. Heavy hitter.', pts:10 },
+    lastCall:      { name:'Last Call',        emoji:'ðŸ””', desc:'YOT on the final turn with the row still open. Clutch!', pts:30 },
     // Jail/Shawshank
-    jail:          { name:'IN JAIL',          emoji:'🔒', desc:'Weak first turn! You\'re locked up. -$10 per turn until you score a lower section or 3+ in upper.', pts:0, isPenalty:true },
-    shawshank:     { name:'SHAWSHANK',        emoji:'🔓', desc:'Rolled a YOT while in jail! You broke free!', pts:30 },
+    jail:          { name:'IN JAIL',          emoji:'ðŸ”’', desc:'Weak first turn! You\'re locked up. -$10 per turn until you score a lower section or 3+ in upper.', pts:0, isPenalty:true },
+    shawshank:     { name:'SHAWSHANK',        emoji:'ðŸ”“', desc:'Rolled a YOT while in jail! You broke free!', pts:30 },
     // Penalties
-    firstScratch:  { name:'First Scratch',    emoji:'😬', desc:'First zero on the scorecard. Ouch.', pts:-10, isPenalty:true },
-    under200:      { name:'Under 200',        emoji:'📉', desc:'Total score under 200. Rough game.', pts:-20, isPenalty:true },
+    firstScratch:  { name:'First Scratch',    emoji:'ðŸ˜¬', desc:'First zero on the scorecard. Ouch.', pts:-10, isPenalty:true },
+    under200:      { name:'Under 200',        emoji:'ðŸ“‰', desc:'Total score under 200. Rough game.', pts:-20, isPenalty:true },
 };
 
 // ========================================================
@@ -1520,7 +1561,7 @@ function animDolly() {
         t+=0.016;
         fadeIn = Math.min(fadeIn + 0.02, 1);
 
-        // Dolly image — centered, with glow
+        // Dolly image â€” centered, with glow
         if(imgReady){
             const maxH = H * 0.65;
             const scale = maxH / img.height;
@@ -1601,7 +1642,7 @@ function animJlo() {
             bCtx.shadowBlur=0;
         }
 
-        // J-Lo image — centered with purple/gold glow
+        // J-Lo image â€” centered with purple/gold glow
         if(imgReady){
             const maxH=H*0.65;
             const scale=maxH/img.height;
@@ -1700,7 +1741,7 @@ function animMenage() {
             bCtx.shadowBlur=0;
         });
 
-        // Image — centered with warm glow
+        // Image â€” centered with warm glow
         if(imgReady){
             const maxH=H*0.55;
             const scale=maxH/img.height;
@@ -1755,7 +1796,7 @@ function animSingledot() {
         t+=0.016;
         fadeIn=Math.min(fadeIn+0.018,1);
 
-        // Horse image — upper center with golden glow
+        // Horse image â€” upper center with golden glow
         if(imgReady){
             const maxH=H*0.55;
             const scale=maxH/img.height;
@@ -1927,7 +1968,7 @@ function animCleancard() {
         if(sweepX>0 && sweepX<W) {
             for(let i=0;i<2;i++) sparkles.push({x:sweepX-rng(20,120),y:rng(0,H),s:rng(1,4),life:1,rot:rng(0,360),rv:rng(-2,2)});
         }
-        // Draw sparkles — diamond shapes
+        // Draw sparkles â€” diamond shapes
         sparkles.forEach(p=>{
             p.life-=0.008; p.rot+=p.rv;
             if(p.life>0){
@@ -2023,7 +2064,7 @@ function animThreeHundred() {
     draw();
 }
 
-// ===================== 8. JAIL — Iron bars =====================
+// ===================== 8. JAIL â€” Iron bars =====================
 function animJail() {
     sizeBonusCanvas();
     const W=bonusCanvas.width,H=bonusCanvas.height;
@@ -2072,7 +2113,7 @@ function animJail() {
     draw();
 }
 
-// ===================== 9. SHAWSHANK — Bars breaking =====================
+// ===================== 9. SHAWSHANK â€” Bars breaking =====================
 function animShawshank() {
     sizeBonusCanvas();
     const W=bonusCanvas.width,H=bonusCanvas.height,cx=W/2,cy=H/2;
@@ -2113,7 +2154,7 @@ function animShawshank() {
             }
         }
 
-        // Shawshank image — fades in after explosion
+        // Shawshank image â€” fades in after explosion
         if(imgReady && exploded){
             const maxH=H*0.7;
             const scale=maxH/img.height;
@@ -2170,7 +2211,7 @@ function animShawshank() {
     draw();
 }
 
-// ===================== 10. CHERRY POPPER — Champagne =====================
+// ===================== 10. CHERRY POPPER â€” Champagne =====================
 function animCherryPopper() {
     sizeBonusCanvas();
     const W=bonusCanvas.width,H=bonusCanvas.height,cx=W/2;
@@ -2217,7 +2258,7 @@ function animCherryPopper() {
     draw();
 }
 
-// ===================== 11. PENALTY — Red flash =====================
+// ===================== 11. PENALTY â€” Red flash =====================
 function animPenalty() {
     sizeBonusCanvas();
     const W=bonusCanvas.width,H=bonusCanvas.height;
@@ -2247,7 +2288,7 @@ function animPenalty() {
     draw();
 }
 
-// ===================== 12. ICE BREAKER — Shattering ice =====================
+// ===================== 12. ICE BREAKER â€” Shattering ice =====================
 function animIceBreaker() {
     sizeBonusCanvas();
     const W=bonusCanvas.width,H=bonusCanvas.height,cx=W/2,cy=H/2;
@@ -2298,7 +2339,7 @@ function animIceBreaker() {
     draw();
 }
 
-// ===================== 13. SINGLE ROLL YOT — Bullseye target hit =====================
+// ===================== 13. SINGLE ROLL YOT â€” Bullseye target hit =====================
 function animSingleRollYot() {
     sizeBonusCanvas();
     const W=bonusCanvas.width,H=bonusCanvas.height,cx=W/2,cy=H/2;
@@ -2348,7 +2389,7 @@ function animSingleRollYot() {
     draw();
 }
 
-// ===================== 14. SINGLE ROLL STRAIGHT — Dice lining up =====================
+// ===================== 14. SINGLE ROLL STRAIGHT â€” Dice lining up =====================
 function animSingleRollStr() {
     sizeBonusCanvas();
     const W=bonusCanvas.width,H=bonusCanvas.height,cx=W/2,cy=H/2;
@@ -2399,7 +2440,7 @@ function animSingleRollStr() {
     draw();
 }
 
-// ===================== 15. FIRST SIXES — Heavy golden dice rain =====================
+// ===================== 15. FIRST SIXES â€” Heavy golden dice rain =====================
 function animFirstSixes() {
     sizeBonusCanvas();
     const W=bonusCanvas.width,H=bonusCanvas.height;
@@ -2443,7 +2484,7 @@ function animFirstSixes() {
     draw();
 }
 
-// ===================== 16. LAST CALL — Spotlight & bell =====================
+// ===================== 16. LAST CALL â€” Spotlight & bell =====================
 function animLastCall() {
     sizeBonusCanvas();
     const W=bonusCanvas.width,H=bonusCanvas.height,cx=W/2;
@@ -2490,13 +2531,13 @@ function animLastCall() {
     draw();
 }
 
-// ===================== 17. 400/500/600 CLUB — Escalating fireworks =====================
+// ===================== 17. 400/500/600 CLUB â€” Escalating fireworks =====================
 function animScoreTier(tier) {
     return function(){
         sizeBonusCanvas();
         const W=bonusCanvas.width,H=bonusCanvas.height;
         const shells=[],sparks=[];
-        const intensity=tier; // 4,5,6 — more shells, more particles
+        const intensity=tier; // 4,5,6 â€” more shells, more particles
         let t=0,nextShell=0;
         const palette=[[255,0,128],[255,215,0],[0,212,255],[0,255,136],[139,92,246],[255,107,43],[255,255,255]];
         function draw(){
@@ -2505,7 +2546,7 @@ function animScoreTier(tier) {
             // Background glow intensifies with tier
             const bgPulse=Math.sin(t*2)*0.02*intensity;
             bCtx.fillStyle=`rgba(255,215,0,${bgPulse})`;bCtx.fillRect(0,0,W,H);
-            // Shells — more frequent at higher tiers
+            // Shells â€” more frequent at higher tiers
             nextShell-=0.016;
             if(nextShell<=0){
                 nextShell=rng(0.1,0.5)/intensity*3;
@@ -2544,7 +2585,7 @@ function animScoreTier(tier) {
     };
 }
 
-// ===================== 18. FIRST SCRATCH — Screen crack =====================
+// ===================== 18. FIRST SCRATCH â€” Screen crack =====================
 function animFirstScratch() {
     sizeBonusCanvas();
     const W=bonusCanvas.width,H=bonusCanvas.height,cx=W/2,cy=H/2;
@@ -2594,7 +2635,7 @@ function animFirstScratch() {
     draw();
 }
 
-// ===================== 19. UNDER 200 — Rain storm =====================
+// ===================== 19. UNDER 200 â€” Rain storm =====================
 function animUnder200() {
     sizeBonusCanvas();
     const W=bonusCanvas.width,H=bonusCanvas.height;
@@ -2683,7 +2724,7 @@ async function checkBonusesAfterScore(cat) {
     }
 
     // --- Cherry Popper: YOT on first roll of the game (round 1, no rerolls) ---
-    // This is personal (not competitive) — cumulative with Ice Breaker per the rules
+    // This is personal (not competitive) â€” cumulative with Ice Breaker per the rules
     if (isYot && round === 1 && rollsThisTurn === 1) addBonus('cherryPopper');
 
     // --- Single Roll YOT: any YOT with no rerolls (personal, not competitive) ---
@@ -2722,7 +2763,7 @@ async function checkBonusesAfterScore(cat) {
 }
 
 function checkEndGameBonuses() {
-    // Clean Card — no zeros
+    // Clean Card â€” no zeros
     const allCats = [...UPPER, ...LOWER];
     const noZeros = allCats.every(c => scores[c] !== undefined && scores[c] > 0);
     if (noZeros) addBonus('cleancard');
@@ -2799,6 +2840,8 @@ function showNextBonus(callback) {
 // === SELECT CATEGORY ===
 async function select(cat) {
     if (!rolled||scores[cat]!==undefined) return;
+    // In MP, block if not your turn
+    if (mpMode && !MP.isMyTurn()) return;
     const pts = calc(cat, dice, jokerActive);
     scores[cat]=pts;
 
@@ -2809,7 +2852,7 @@ async function select(cat) {
     // Yahtzee confetti
     if (cat==='yahtzee'&&pts===50) fireConfetti();
 
-    // First Scratch penalty — MP only (first player to scratch loses $10)
+    // First Scratch penalty â€” MP only (first player to scratch loses $10)
     if (pts === 0 && !firstScratchDone && mpMode) {
         firstScratchDone = true;
         // Check if an opponent already scratched first
@@ -2873,32 +2916,26 @@ async function select(cat) {
     // Capture the completed round number BEFORE incrementing
     const completedRound = round;
 
-    // Submit to Supabase FIRST (before clearing local state) so scores are saved
     async function submitAndAdvance() {
         if (mpMode) {
             const {total} = getTotal();
-            console.log(`[MP] Submitting round ${completedRound}, total: $${total}, scores:`, JSON.stringify(scores));
-            const result = await MP.submitRound(scores, earnedBonuses, jailPenalty, jokerBonusPoints, total, completedRound);
-            console.log('[MP] Submit result:', result);
+            // Build bonus names for recap
+            const bonusNames = earnedBonuses.filter(k=>BONUS_DEFS[k]).map(k=>`${BONUS_DEFS[k].emoji} ${BONUS_DEFS[k].name} (+$${BONUS_DEFS[k].pts})`);
+            console.log(`[MP] endTurn round ${completedRound}, cat: ${cat}, pts: ${pts}, total: $${total}`);
+            await MP.endTurn(scores, earnedBonuses, jailPenalty, jokerBonusPoints, total, completedRound, cat, pts, bonusNames);
         }
 
-        // NOW reset local state for next round
+        // Reset local state for next round
         round = completedRound + 1;
-        rollsLeft=3;
-        rollsThisTurn=0;
-        rolled=false;
-        jokerActive=false;
-        held=[false,false,false,false,false];
-        dice=[0,0,0,0,0];
+        rollsLeft=3; rollsThisTurn=0; rolled=false; jokerActive=false;
+        held=[false,false,false,false,false]; dice=[0,0,0,0,0];
 
         wraps.forEach(w=>w.classList.remove('held'));
         dies.forEach(el=>renderDie(el,0));
         updateUI();
 
-        if (mpMode) {
-            await checkRoundSync();
-        }
         if (round > 13 && !mpMode) endGame();
+        // In MP, handleGameUpdate handles turn transitions
     }
 
     if (pendingBonuses.length > 0) {
@@ -2914,7 +2951,7 @@ function updateUI() {
     totalDisplay.textContent='$'+total;
     roundNum.textContent=Math.min(round,13);
     rollBtn.disabled=rollsLeft<=0;
-    rollBtn.textContent=jokerActive?'🃏 JOKER — Pick Any Row!':rolled?(rollsLeft>0?'Roll Again':'Select a Score'):'Roll Dice';
+    rollBtn.textContent=jokerActive?'ðŸƒ JOKER â€” Pick Any Row!':rolled?(rollsLeft>0?'Roll Again':'Select a Score'):'Roll Dice';
 
     // Roll pips
     rollsInd.innerHTML='';
@@ -2967,37 +3004,37 @@ function updateUI() {
         if (oldCheck) oldCheck.remove();
 
         if (scores[cat]!==undefined) {
-            // SCORED — locked in, done
+            // SCORED â€” locked in, done
             el.textContent=scores[cat];
             r.classList.add('scored');
             const check = document.createElement('span');
             check.className='sc-check';
-            check.textContent=' ✓';
+            check.textContent=' âœ“';
             nameEl.appendChild(check);
         } else if (rolled) {
             const v = potentials[cat];
             el.textContent=v;
             if (cat === bestCat && v > 0) {
-                // BEST PICK — top option
+                // BEST PICK â€” top option
                 r.classList.add('best-pick');
             } else if (v > 0) {
-                // AVAILABLE — has points
+                // AVAILABLE â€” has points
                 r.classList.add('pick-available');
             } else {
-                // SCRATCH — zero, would waste it
+                // SCRATCH â€” zero, would waste it
                 r.classList.add('pick-scratch');
                 el.textContent='0';
             }
         } else {
-            // IDLE — hasn't rolled yet
-            el.textContent='—';
+            // IDLE â€” hasn't rolled yet
+            el.textContent='â€”';
             r.classList.add('idle');
         }
     });
 
     // Jail badge
     const jailBadge = document.getElementById('jail-badge');
-    if (inJail) { jailBadge.classList.add('active'); jailBadge.textContent=`🔒 JAIL -$${jailPenalty}`; }
+    if (inJail) { jailBadge.classList.add('active'); jailBadge.textContent=`ðŸ”’ JAIL -$${jailPenalty}`; }
     else jailBadge.classList.remove('active');
 
     // High score display
@@ -3009,7 +3046,7 @@ function updateUI() {
 
 function updateTip() {
     const tipBar = document.getElementById('tip-bar');
-    // Hide tip during active roll — hype messages take over
+    // Hide tip during active roll â€” hype messages take over
     if (rolled && rollsLeft < 3) {
         tipBar.innerHTML = '';
         return;
@@ -3032,52 +3069,52 @@ function getBonusTip() {
 
     // --- JAIL WARNING on turn 1 ---
     if (round === 1 && rolled && !inJail) {
-        return '⚠️ TURN 1: Scoring Chance or an upper with <3 matching = JAIL (-$10/turn). Pick wisely!';
+        return 'âš ï¸ TURN 1: Scoring Chance or an upper with <3 matching = JAIL (-$10/turn). Pick wisely!';
     }
 
     // --- JAIL STATUS ---
     if (inJail) {
-        return `🔒 IN JAIL! -$10/turn (${jailTurns} turns so far, -$${jailPenalty}). Score a lower section or 3+ in upper to escape. YOT = Shawshank (+$30)!`;
+        return `ðŸ”’ IN JAIL! -$10/turn (${jailTurns} turns so far, -$${jailPenalty}). Score a lower section or 3+ in upper to escape. YOT = Shawshank (+$30)!`;
     }
 
     // --- JOKER ACTIVE ---
     if (jokerActive) {
-        return '🃏 JOKER ACTIVE! +$100 bonus scored. Pick ANY open row — straights and full house score full points!';
+        return 'ðŸƒ JOKER ACTIVE! +$100 bonus scored. Pick ANY open row â€” straights and full house score full points!';
     }
 
     // --- FULL DOLLY ---
     if (!earned.has('dolly') && lowerFilled.length === 0 && upperOpen.length > 0 && upperOpen.length <= 3) {
-        return `🎀 Dolly alert! ${upperOpen.length} more upper slot${upperOpen.length>1?'s':''} (need ${Math.max(0,63-upper)} more for 63+ bonus) before touching bottom = +$20!`;
+        return `ðŸŽ€ Dolly alert! ${upperOpen.length} more upper slot${upperOpen.length>1?'s':''} (need ${Math.max(0,63-upper)} more for 63+ bonus) before touching bottom = +$20!`;
     }
     if (!earned.has('dolly') && lowerFilled.length === 0 && upperFilled.length > 0 && upperFilled.length < 4) {
-        return `🎀 Dolly Watch: ALL upper before any lower = +$20. ${upperOpen.length} to go.`;
+        return `ðŸŽ€ Dolly Watch: ALL upper before any lower = +$20. ${upperOpen.length} to go.`;
     }
 
     // --- J-LO ---
     if (!earned.has('jlo') && upperFilled.length === 0 && lowerOpen.length > 0 && lowerOpen.length <= 3) {
-        return `🍑 J-Lo alert! ${lowerOpen.length} more lower slot${lowerOpen.length>1?'s':''} without touching top = +$20!`;
+        return `ðŸ‘ J-Lo alert! ${lowerOpen.length} more lower slot${lowerOpen.length>1?'s':''} without touching top = +$20!`;
     }
     if (!earned.has('jlo') && upperFilled.length === 0 && lowerFilled.length > 0 && lowerFilled.length < 5) {
-        return `🍑 J-Lo Watch: ALL lower before any upper = +$20. ${lowerOpen.length} to go.`;
+        return `ðŸ‘ J-Lo Watch: ALL lower before any upper = +$20. ${lowerOpen.length} to go.`;
     }
 
     // --- MENAGE ---
     if (!earned.has('menage') && upperFilled.length > 0 && upperFilled.length < 6) {
         const menageTarget = {ones:3,twos:6,threes:9,fours:12,fives:15,sixes:18};
         if (upperFilled.every(c => scores[c] === menageTarget[c]) && upperFilled.length >= 2) {
-            return `💋 Ménage in play! Exactly 3 of each up top so far = +$30. ${upperOpen.length} left.`;
+            return `ðŸ’‹ MÃ©nage in play! Exactly 3 of each up top so far = +$30. ${upperOpen.length} left.`;
         }
     }
 
     // --- SINGLE DOT YOT ---
     if (!earned.has('singledot') && scores.yahtzee === undefined && rolled) {
         const ones = dice.filter(d => d === 1).length;
-        if (ones >= 3) return `🏇 ${ones} ones! Hold them — all 1s = Single Dot Yot (+$50)!`;
+        if (ones >= 3) return `ðŸ‡ ${ones} ones! Hold them â€” all 1s = Single Dot Yot (+$50)!`;
     }
 
     // --- YAHTZEE COUNT ---
     if (yahtzeeCount >= 1 && scores.yahtzee > 0) {
-        return '🃏 YOT already scored! Another 5-of-a-kind = +$100 Joker bonus + play it anywhere!';
+        return 'ðŸƒ YOT already scored! Another 5-of-a-kind = +$100 Joker bonus + play it anywhere!';
     }
 
     // --- CLEAN CARD ---
@@ -3085,34 +3122,34 @@ function getBonusTip() {
         const allCats = [...UPPER, ...LOWER];
         const zeros = allCats.filter(c => scores[c] === 0).length;
         const openSlots = allCats.filter(c => scores[c] === undefined).length;
-        if (zeros === 0 && openSlots <= 5) return `✨ Clean Card! No zeros yet. Keep it clean = +$30. ${openSlots} left.`;
-        if (zeros === 0 && openSlots > 5) return '✨ No scratches yet. Clean Card (no zeros) = +$30!';
+        if (zeros === 0 && openSlots <= 5) return `âœ¨ Clean Card! No zeros yet. Keep it clean = +$30. ${openSlots} left.`;
+        if (zeros === 0 && openSlots > 5) return 'âœ¨ No scratches yet. Clean Card (no zeros) = +$30!';
     }
 
     // --- SCORE TIERS ---
     if (round >= 10) {
-        if (total >= 250 && total < 300 && !earned.has('threeHundred')) return `🚀 300 Club: need $${300-total} more = +$20!`;
-        if (total >= 350 && total < 400 && !earned.has('fourHundred')) return `🚀 400 Club: need $${400-total} more = +$40!`;
+        if (total >= 250 && total < 300 && !earned.has('threeHundred')) return `ðŸš€ 300 Club: need $${300-total} more = +$20!`;
+        if (total >= 350 && total < 400 && !earned.has('fourHundred')) return `ðŸš€ 400 Club: need $${400-total} more = +$40!`;
     }
 
     // --- FIRST SCRATCH WARNING ---
     if (!firstScratchDone && round >= 5) {
         const allCats = [...UPPER,...LOWER];
         const zeros = allCats.filter(c => scores[c] === 0).length;
-        if (zeros === 0) return '😬 No scratches yet! First zero = -$10 penalty. Avoid it!';
+        if (zeros === 0) return 'ðŸ˜¬ No scratches yet! First zero = -$10 penalty. Avoid it!';
     }
 
     // --- EARLY GAME ---
     if (round <= 2) {
         const tips = [
-            '⚠️ Turn 1 tip: Scoring Chance or weak upper = JAIL (-$10/turn until you escape)!',
-            '🎀 Bonus: Fill ALL upper (63+) before any lower = "Full Dolly" +$20',
-            '🍑 Bonus: Fill ALL lower before any upper = "The J-Lo" +$20',
-            '💋 Bonus: Exactly 3 of each upper = "The Ménage" +$30',
-            '🏇 Bonus: Yahtzee on all ONES = "Single Dot Yot" +$50',
-            '🎯 Bonus: YOT on first roll (no rerolls) = "Cherry Popper" +$30',
-            '✨ Bonus: No zeros on the card = "Clean Card" +$30',
-            '🚀 Bonus: Score 300+ = $20, 400+ = $40, 500+ = $60, 600+ = $80',
+            'âš ï¸ Turn 1 tip: Scoring Chance or weak upper = JAIL (-$10/turn until you escape)!',
+            'ðŸŽ€ Bonus: Fill ALL upper (63+) before any lower = "Full Dolly" +$20',
+            'ðŸ‘ Bonus: Fill ALL lower before any upper = "The J-Lo" +$20',
+            'ðŸ’‹ Bonus: Exactly 3 of each upper = "The MÃ©nage" +$30',
+            'ðŸ‡ Bonus: Yahtzee on all ONES = "Single Dot Yot" +$50',
+            'ðŸŽ¯ Bonus: YOT on first roll (no rerolls) = "Cherry Popper" +$30',
+            'âœ¨ Bonus: No zeros on the card = "Clean Card" +$30',
+            'ðŸš€ Bonus: Score 300+ = $20, 400+ = $40, 500+ = $60, 600+ = $80',
         ];
         return tips[Math.floor(Math.random() * tips.length)];
     }
@@ -3157,7 +3194,7 @@ function finishEndGame() {
     if (isNew) { highScore=total; localStorage.setItem('yahtzee-high', total); }
 
     document.getElementById('go-score').textContent='$'+total;
-    document.getElementById('go-title').textContent = isNew ? '🏆 New High Score!' : 'Game Over!';
+    document.getElementById('go-title').textContent = isNew ? 'ðŸ† New High Score!' : 'Game Over!';
     document.getElementById('go-sub').textContent = total>=300?'ELITE.':total>=250?'Legendary.':total>=200?'Outstanding!':total>=150?'Solid game.':'Better luck next time.';
     document.getElementById('go-high').textContent = `Best: $${highScore}`;
 
@@ -3168,7 +3205,7 @@ function finishEndGame() {
     if (jailPenalty > 0) {
         const jr = document.createElement('div');
         jr.className = 'go-bonus-row';
-        jr.innerHTML = `<span class="name">🔒 Jail Penalty (${jailTurns} turns)</span><span class="pts" style="color:#e74c5e">-$${jailPenalty}</span>`;
+        jr.innerHTML = `<span class="name">ðŸ”’ Jail Penalty (${jailTurns} turns)</span><span class="pts" style="color:#e74c5e">-$${jailPenalty}</span>`;
         bonusDiv.appendChild(jr);
     }
     if (earnedBonuses.length > 0) {
@@ -3272,19 +3309,27 @@ document.addEventListener('keydown', e=>{
 });
 
 // ========================================================
-// MULTIPLAYER INTEGRATION
+// MULTIPLAYER V2 â€” Strict 1v1 alternating turns
 // ========================================================
-let mpMode = false; // true when in a multiplayer game
+let mpMode = false;
 let mpPollInterval = null;
+let mpGameStarted = false;
+
+const CAT_NAMES_MP = {ones:'Ones',twos:'Twos',threes:'Threes',fours:'Fours',fives:'Fives',sixes:'Sixes',
+    three:'Three of a Kind',four:'Four of a Kind',full:'Full House',smstr:'Sm. Straight',lgstr:'Lg. Straight',yahtzee:'YAHTZEE',chance:'Chance'};
+const CAT_LABELS_MP = {ones:'1s',twos:'2s',threes:'3s',fours:'4s',fives:'5s',sixes:'6s',
+    three:'3K',four:'4K',full:'FH',smstr:'SS',lgstr:'LS',yahtzee:'YOT',chance:'CH'};
+const ALL_CATS_MP = ['ones','twos','threes','fours','fives','sixes','_bonus','three','four','full','smstr','lgstr','yahtzee','chance','_total'];
+const WATCH_PIPS = {0:[],1:[5],2:[3,7],3:[3,5,7],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
 
 const modeSelect = document.getElementById('mode-select');
 const lobby = document.getElementById('lobby');
 const gameArea = document.getElementById('game-area');
 const mpBar = document.getElementById('mp-bar');
-const waitOverlay = document.getElementById('wait-overlay');
+const watchOverlay = document.getElementById('watch-overlay');
+const recapOverlay = document.getElementById('recap-overlay');
 const mpLeaderboard = document.getElementById('mp-leaderboard');
 
-// Initially hide game area
 gameArea.style.display = 'none';
 
 // === MODE SELECT ===
@@ -3314,13 +3359,14 @@ document.querySelectorAll('.lobby-tab').forEach(tab => {
     });
 });
 
-// === CREATE GAME ===
+// === CREATE GAME (with opponent name) ===
 document.getElementById('btn-create').addEventListener('click', async () => {
-    const name = document.getElementById('create-name').value.trim();
-    if (!name) { document.getElementById('lobby-error').textContent = 'Enter a nickname.'; return; }
+    const myName = document.getElementById('create-myname').value.trim();
+    const oppName = document.getElementById('create-oppname').value.trim();
+    if (!myName||!oppName) { document.getElementById('lobby-error').textContent = 'Enter both names.'; return; }
     document.getElementById('btn-create').textContent = 'Creating...';
-    const result = await MP.createGame(name);
-    document.getElementById('btn-create').textContent = 'Create';
+    const result = await MP.createGame(myName, oppName);
+    document.getElementById('btn-create').textContent = 'Create Challenge';
     if (result.error) { document.getElementById('lobby-error').textContent = result.error; return; }
     MP.saveGameId();
     showLobbyRoom();
@@ -3330,13 +3376,13 @@ document.getElementById('btn-create').addEventListener('click', async () => {
 document.getElementById('btn-join').addEventListener('click', async () => {
     const code = document.getElementById('join-code').value.trim();
     const name = document.getElementById('join-name').value.trim();
-    if (!code || !name) { document.getElementById('lobby-error').textContent = 'Enter code and nickname.'; return; }
+    if (!code||!name) { document.getElementById('lobby-error').textContent = 'Enter code and name.'; return; }
     document.getElementById('btn-join').textContent = 'Joining...';
     const result = await MP.joinGame(code, name);
-    document.getElementById('btn-join').textContent = 'Join';
+    document.getElementById('btn-join').textContent = 'Join Game';
     if (result.error) { document.getElementById('lobby-error').textContent = result.error; return; }
     MP.saveGameId();
-    showLobbyRoom();
+    startMultiplayerGame(); // auto-start when P2 joins
 });
 
 // === LOBBY ROOM ===
@@ -3345,32 +3391,29 @@ document.getElementById('btn-notify').addEventListener('click', async () => {
     const btn = document.getElementById('btn-notify');
     const granted = await requestNotifications();
     if (granted) {
-        btn.textContent = '🔔 Notifications enabled!';
+        btn.textContent = 'ðŸ”” Notifications enabled!';
         btn.classList.add('enabled');
     } else {
-        btn.textContent = '🔕 Notifications blocked by browser';
+        btn.textContent = 'ðŸ”• Notifications blocked by browser';
     }
 });
 
-async function showLobbyRoom() {
+function showLobbyRoom() {
     document.getElementById('lobby-tabs').style.display = 'none';
     document.getElementById('panel-create').style.display = 'none';
     document.getElementById('panel-join').style.display = 'none';
     document.getElementById('lobby-room').style.display = '';
-    document.getElementById('lobby-code-val').textContent = MP.getCode();
     document.getElementById('lobby-error').textContent = '';
 
-    // Show notification button if supported
+    const g = MP.getGame();
+    document.getElementById('lobby-match-title').textContent = `${g.player1_name} v. ${g.player2_name}`;
+    document.getElementById('lobby-code-val').textContent = MP.getCode();
+    document.getElementById('lobby-wait-msg').textContent = `Waiting on ${g.player2_name} to join...`;
+
     if ('Notification' in window && Notification.permission !== 'denied') {
-        const notifyBtn = document.getElementById('btn-notify');
-        notifyBtn.style.display = '';
-        if (Notification.permission === 'granted') {
-            notifyBtn.textContent = '🔔 Notifications enabled!';
-            notifyBtn.classList.add('enabled');
-        }
+        document.getElementById('btn-notify').style.display = '';
     }
 
-    // Copy link button
     document.getElementById('btn-copy-code').onclick = () => {
         const url = `${window.location.origin}${window.location.pathname}?game=${MP.getCode()}`;
         navigator.clipboard.writeText(url).then(() => {
@@ -3379,327 +3422,172 @@ async function showLobbyRoom() {
         });
     };
 
-    // Show/hide start button
-    if (MP.isCreator()) {
-        document.getElementById('btn-start').style.display = '';
-    }
-
-    refreshLobbyPlayers();
-
-    // Listen for realtime updates
-    MP.setOnGameUpdate((type, payload) => {
-        if (type === 'player_change') refreshLobbyPlayers();
-        if (type === 'game_change') {
-            const newData = payload.new;
-            if (newData && newData.status === 'playing') {
-                startMultiplayerGame();
-            }
+    // Listen for opponent to join (auto-starts)
+    MP.setOnUpdate((type, payload) => {
+        if (type === 'game_change' && payload.new && payload.new.status === 'playing') {
+            startMultiplayerGame();
         }
     });
 }
 
-async function refreshLobbyPlayers() {
-    const players = await MP.getPlayers();
-    const container = document.getElementById('lobby-players');
-    const myPlayer = MP.getMyPlayer();
-    container.innerHTML = '';
-    players.forEach(p => {
-        const div = document.createElement('div');
-        div.className = 'lobby-player';
-        div.innerHTML = p.name + (p.id === myPlayer?.id ? '<span class="you">(you)</span>' : '');
-        container.appendChild(div);
-    });
-    // Enable start button if 2+ players
-    const startBtn = document.getElementById('btn-start');
-    startBtn.disabled = players.length < 2;
-
-    const waitMsg = document.getElementById('lobby-wait-msg');
-    const isHost = MP.isCreator();
-    if (players.length < 2) {
-        waitMsg.textContent = 'Send the code to your friends...';
-    } else if (isHost) {
-        waitMsg.textContent = `${players.length} players in the room. Hit Start when everyone's here!`;
-    } else {
-        waitMsg.textContent = `${players.length} players ready. Waiting for the host to start...`;
-    }
-}
-
-// === START GAME ===
-document.getElementById('btn-start').addEventListener('click', async () => {
-    document.getElementById('btn-start').textContent = 'Starting...';
-    await MP.startGame();
-    // Realtime callback will trigger startMultiplayerGame for all players
-});
-
-let mpGameStarted = false; // guard against double-start from realtime events
-
 function startMultiplayerGame() {
-    if (mpGameStarted) return; // prevent double-start
+    if (mpGameStarted) return;
     mpGameStarted = true;
     mpMode = true;
     lobby.style.display = 'none';
     gameArea.style.display = '';
     mpBar.style.display = '';
-    document.getElementById('mp-bar-code').textContent = 'Game: ' + MP.getCode();
+    document.title = MP.getMatchTitle() + ' â€” Yahtzeeeee!';
+    document.getElementById('mp-bar-title').textContent = MP.getMatchTitle();
     dies.forEach(el=>renderDie(el,0));
     reset();
-    hype('start');
+    sendLocalNotification('Yahtzeeeee!', 'Game on! ' + MP.getMatchTitle());
 
-    // Notify if tab isn't focused
-    sendLocalNotification('Yahtzeeeee!', 'Game started! Roll those dice!');
-
-    // Initial load of opponents
-    checkRoundSync();
-
-    // Listen for round updates in-game (realtime)
-    MP.setOnGameUpdate(async (type, payload) => {
-        if (type === 'player_change' || type === 'game_change') {
-            await checkRoundSync();
-        }
+    MP.setOnUpdate(async (type, payload) => {
+        if (type === 'game_change') await handleGameUpdate(payload.new);
+        if (type === 'player_change') await refreshOpponent();
     });
 
-    // Polling fallback — realtime can be flaky on mobile Safari
     if (mpPollInterval) clearInterval(mpPollInterval);
     mpPollInterval = setInterval(async () => {
         if (!mpMode) return;
-        await checkRoundSync();
-    }, 5000);
+        const state = await MP.getGameState();
+        if (state) await handleGameUpdate(state.game);
+    }, 4000);
+
+    setTimeout(async () => {
+        const state = await MP.getGameState();
+        if (state) await handleGameUpdate(state.game);
+    }, 500);
 }
 
-// === OPPONENT SCORECARDS ===
-const CAT_LABELS = {ones:'1s',twos:'2s',threes:'3s',fours:'4s',fives:'5s',sixes:'6s',
-    three:'3K',four:'4K',full:'FH',smstr:'SS',lgstr:'LS',yahtzee:'YOT',chance:'CH'};
-const ALL_CATS = ['ones','twos','threes','fours','fives','sixes','_bonus','three','four','full','smstr','lgstr','yahtzee','chance','_total'];
+// === HANDLE GAME STATE UPDATES ===
+async function handleGameUpdate(g) {
+    if (!g || !mpMode) return;
+    const isMyTurn = g.current_turn === MP.getMyPlayerNum();
+    document.getElementById('mp-bar-turn').textContent = isMyTurn ? "Your turn" : `${MP.getOpponentName()}'s turn`;
 
-function renderOpponents(players, gameRound) {
-    const container = document.getElementById('opponents');
-    const myPlayer = MP.getMyPlayer();
-    if (!myPlayer || players.length <= 1) { container.style.display='none'; return; }
-
-    container.style.display = '';
-    const opponents = players.filter(p => p.id !== myPlayer.id).sort((a,b) => b.total_score - a.total_score);
-    const bestScore = Math.max(...players.map(p=>p.total_score));
-
-    container.innerHTML = '';
-    opponents.forEach(opp => {
-        const sc = opp.scores || {};
-        const card = document.createElement('div');
-        card.className = 'opp-card' + (opp.total_score === bestScore && bestScore > 0 ? ' leading' : '');
-
-        // Header
-        let html = `<div class="opp-header"><span class="opp-name">${opp.name}</span><span class="opp-total">$${opp.total_score}</span></div>`;
-        html += `<div class="opp-round">Rd ${Math.min(opp.current_round, 13)}/13</div>`;
-
-        // Rows
-        html += '<div class="opp-rows">';
-        ALL_CATS.forEach(cat => {
-            if (cat === '_bonus') {
-                let upper = 0;
-                ['ones','twos','threes','fours','fives','sixes'].forEach(c => { if(sc[c]!==undefined && sc[c]!==null) upper+=sc[c]; });
-                const bonus = upper >= 63 ? 35 : 0;
-                html += `<div class="opp-row opp-sep"><span class="opp-cat">Bonus</span><span class="opp-val">${bonus>0?'+35':upper+'/63'}</span></div>`;
-                return;
-            }
-            if (cat === '_total') {
-                html += `<div class="opp-row opp-sep"><span class="opp-cat">Total</span><span class="opp-val">$${opp.total_score}</span></div>`;
-                return;
-            }
-            const val = sc[cat];
-            const hasScore = val !== undefined && val !== null;
-            const isZero = hasScore && val === 0;
-            const cls = hasScore ? (isZero ? 'has-score is-zero' : 'has-score') : '';
-            html += `<div class="opp-row ${cls}"><span class="opp-cat">${CAT_LABELS[cat]||cat}</span><span class="opp-val">${hasScore?val:'—'}</span></div>`;
-        });
-        html += '</div>';
-
-        // Status
-        const done = opp.current_round > gameRound;
-        html += `<div class="opp-status ${done?'done':'playing'}">${done?'✓ Done':'Playing...'}</div>`;
-
-        card.innerHTML = html;
-        container.appendChild(card);
-    });
-}
-
-// === ROUND SYNC ===
-async function checkRoundSync() {
-    if (!mpMode) return;
-    const state = await MP.getGameState();
-    if (!state || !state.game) return;
-
-    const { game, players } = state;
-
-    // getGameState() now refreshes currentPlayer from DB — always use fresh data
-    const myPlayer = MP.getMyPlayer();
-    const myRound = myPlayer?.current_round || 1;
-
-    // Update opponents panel
-    renderOpponents(players, game.current_round);
-
-    // Update mp bar status
-    const done = players.filter(p => p.current_round > game.current_round).length;
-    const gameRound = Math.min(game.current_round, 13);
-    document.getElementById('mp-bar-status').textContent = `Round ${gameRound}/13 · ${done}/${players.length} done`;
-
-    // Game finished
-    if (game.status === 'finished') {
-        waitOverlay.style.display = 'none';
-        if (mpPollInterval) { clearInterval(mpPollInterval); mpPollInterval = null; }
+    if (g.status === 'finished') {
+        watchOverlay.style.display = 'none';
+        recapOverlay.style.display = 'none';
+        const players = await MP.getPlayers();
         showLeaderboard(players);
         return;
     }
 
-    // Check: has the game round advanced past what we were waiting on?
-    const wasWaiting = waitOverlay.style.display !== 'none';
+    let lastAction = null;
+    try { lastAction = typeof g.last_action === 'string' ? JSON.parse(g.last_action) : g.last_action; } catch(e) {}
 
-    // If I've finished my round but the game hasn't advanced yet — show waiting
-    if (myRound > game.current_round) {
-        showWaiting(players, game.current_round);
-
-        // Safety net: if everyone is done but the game didn't advance (race condition), try to advance it
-        const allDone = players.every(p => p.current_round > game.current_round);
-        if (allDone) {
-            console.log('[MP] Polling detected all done — trying to advance round');
-            await MP.tryAdvanceRound(game.current_round);
+    if (isMyTurn) {
+        watchOverlay.style.display = 'none';
+        if (lastAction && lastAction.type === 'turn_end' && lastAction.playerNum !== MP.getMyPlayerNum()) {
+            showRecap(lastAction);
         }
+    } else {
+        recapOverlay.style.display = 'none';
+        showWatchOverlay(g);
     }
-
-    // If the game round caught up to (or passed) my round — I can play! Dismiss waiting.
-    if (myRound <= game.current_round && wasWaiting) {
-        waitOverlay.style.display = 'none';
-        sendLocalNotification('Yahtzeeeee!', `Round ${game.current_round} is ready — it's your turn!`);
-    }
+    await refreshOpponent();
 }
 
-function showWaiting(players, roundNum) {
-    const container = document.getElementById('wait-scores');
-    const myPlayer = MP.getMyPlayer();
-    container.innerHTML = '';
-
-    const sorted = [...players].sort((a,b) => b.total_score - a.total_score);
-    const myRank = sorted.findIndex(p => p.id === myPlayer?.id) + 1;
-    const myScore = myPlayer?.total_score || 0;
-    const leader = sorted[0];
-    const isLeading = leader?.id === myPlayer?.id;
-    const stillPlaying = players.filter(p => p.current_round <= roundNum);
-    const allDone = stillPlaying.length === 0;
-
-    // Title and subtitle
-    document.getElementById('wait-title').textContent = `Round ${roundNum} Complete!`;
-
-    let subtitle = '';
-    if (isLeading && sorted.length > 1) {
-        const lead = myScore - sorted[1].total_score;
-        subtitle = lead > 0 ? `You're in the lead by $${lead}!` : 'You\'re tied for first!';
-    } else if (myRank === 2) {
-        subtitle = `$${leader.total_score - myScore} behind ${leader.name}. Close the gap!`;
-    } else if (myRank > 2) {
-        subtitle = `${myRank}${myRank===3?'rd':'th'} place. $${leader.total_score - myScore} off the lead.`;
-    }
-    document.getElementById('wait-subtitle').textContent = subtitle;
-
-    // Player rows
-    sorted.forEach((p, i) => {
-        const done = p.current_round > roundNum;
-        const isMe = p.id === myPlayer?.id;
-        const row = document.createElement('div');
-        row.className = 'wait-score-row';
-        row.innerHTML = `<span class="wname">${i===0?'👑 ':''}${p.name}${isMe?' (you)':''}</span>
-            <span class="wscore">$${p.total_score}</span>
-            <span class="wstatus ${done?'done':'pending'}">${done?'✓ Done':'Rolling...'}</span>`;
-        container.appendChild(row);
+function showWatchOverlay(g) {
+    document.getElementById('watch-title').textContent = `${MP.getOpponentName()}'s Turn`;
+    const dc = document.getElementById('watch-dice');
+    const dv = g.turn_dice||[0,0,0,0,0], hv = g.turn_held||[false,false,false,false,false];
+    dc.innerHTML = '';
+    dv.forEach((v,i)=>{
+        const d=document.createElement('div');
+        d.className='watch-die'+(hv[i]?' held':'');
+        const pips=WATCH_PIPS[v]||[];
+        for(let p=1;p<=9;p++){const pip=document.createElement('div');pip.className='watch-pip'+(pips.includes(p)?' on':'');d.appendChild(pip);}
+        dc.appendChild(d);
     });
+    const rl=g.turn_rolls_left??3;
+    document.getElementById('watch-status').textContent=rl===3?'Thinking...':`${rl} roll${rl!==1?'s':''} left`;
+    watchOverlay.style.display='';
+}
 
-    // Message
-    if (allDone) {
-        document.getElementById('wait-msg').textContent = roundNum >= 13 ? 'Game over! Calculating results...' : 'All done! Next round starting...';
-        document.getElementById('wait-dots').style.display = 'none';
-    } else {
-        const names = stillPlaying.map(p => p.name);
-        const waitFor = names.length <= 2 ? names.join(' and ') : `${names.length} player${names.length>1?'s':''}`;
-        document.getElementById('wait-msg').textContent = `Waiting for ${waitFor}...`;
-        document.getElementById('wait-dots').style.display = '';
-    }
+function showRecap(action) {
+    const catName=CAT_NAMES_MP[action.cat]||action.cat;
+    document.getElementById('recap-title').textContent=`${action.playerName}'s Turn`;
+    let detail=`Scored <span class="recap-score">${action.pts}</span> in <span class="recap-score">${catName}</span>`;
+    detail+=`<br>Total: <span class="recap-score">$${action.totalScore}</span>`;
+    if(action.bonuses&&action.bonuses.length>0) action.bonuses.forEach(b=>{detail+=`<br><span class="recap-bonus">${b}</span>`;});
+    document.getElementById('recap-detail').innerHTML=detail;
+    recapOverlay.style.display='';
+}
+document.getElementById('recap-btn').addEventListener('click',()=>{recapOverlay.style.display='none';});
 
-    waitOverlay.style.display = '';
+async function refreshOpponent() {
+    const players=await MP.getPlayers();
+    const myP=MP.getMyPlayer();
+    const container=document.getElementById('opponents');
+    if(!myP||players.length<2){container.style.display='none';return;}
+    container.style.display='';
+    const opp=players.find(p=>p.id!==myP.id);
+    if(!opp)return;
+    const sc=opp.scores||{};
+    let html=`<div class="opp-header"><span class="opp-name">${opp.name}</span><span class="opp-total">$${opp.total_score}</span></div><div class="opp-rows">`;
+    ALL_CATS_MP.forEach(cat=>{
+        if(cat==='_bonus'){let u=0;['ones','twos','threes','fours','fives','sixes'].forEach(c=>{if(sc[c]!=null)u+=sc[c];});html+=`<div class="opp-row opp-sep"><span class="opp-cat">Bonus</span><span class="opp-val">${u>=63?'+35':u+'/63'}</span></div>`;return;}
+        if(cat==='_total'){html+=`<div class="opp-row opp-sep"><span class="opp-cat">Total</span><span class="opp-val">$${opp.total_score}</span></div>`;return;}
+        const v=sc[cat];const has=v!=null;const cls=has?(v===0?'has-score is-zero':'has-score'):'';
+        html+=`<div class="opp-row ${cls}"><span class="opp-cat">${CAT_LABELS_MP[cat]||cat}</span><span class="opp-val">${has?v:'â€”'}</span></div>`;
+    });
+    html+='</div>';
+    container.innerHTML=`<div class="opp-card">${html}</div>`;
 }
 
 // === LEADERBOARD ===
 function showLeaderboard(players) {
-    const myPlayer = MP.getMyPlayer();
+    const myP = MP.getMyPlayer();
     const sorted = [...players].sort((a,b) => b.total_score - a.total_score);
     const container = document.getElementById('lb-list');
     container.innerHTML = '';
-
-    // Calculate net payouts — each loser pays the winner the difference
-    // Dog eat dog: payout = your score - opponent's score (per opponent)
-    const avgScore = sorted.reduce((s,p)=>s+p.total_score,0) / sorted.length;
-
-    sorted.forEach((p, i) => {
-        // Net payout: difference vs every other player
-        let net = 0;
-        sorted.forEach(opp => {
-            if (opp.id !== p.id) net += p.total_score - opp.total_score;
-        });
-
-        const isMe = p.id === myPlayer?.id;
+    sorted.forEach((p,i)=>{
+        const opp = sorted.find(x=>x.id!==p.id);
+        const net = opp ? p.total_score - opp.total_score : 0;
+        const isMe = p.id === myP?.id;
         const row = document.createElement('div');
-        row.className = 'lb-row' + (i === 0 ? ' winner' : '');
-        const medals = ['🥇','🥈','🥉'];
-        const netStr = net >= 0 ? `+$${net}` : `-$${Math.abs(net)}`;
-        const netColor = net >= 0 ? 'color:var(--teal)' : 'color:var(--red)';
-        row.innerHTML = `<span class="lb-rank">${medals[i]||i+1}</span>
+        row.className = 'lb-row' + (i===0?' winner':'');
+        const netStr = net>=0?`+$${net}`:`-$${Math.abs(net)}`;
+        const netColor = net>=0?'color:var(--teal)':'color:var(--red)';
+        row.innerHTML = `<span class="lb-rank">${i===0?'ðŸ¥‡':'ðŸ¥ˆ'}</span>
             <span class="lb-name">${p.name}${isMe?'<span class="lb-you">(you)</span>':''}</span>
             <span class="lb-total">$${p.total_score}</span>
-            <span class="lb-net" style="${netColor};font-family:var(--mono);font-size:0.8rem;font-weight:600;min-width:60px;text-align:right">${netStr}</span>`;
+            <span style="${netColor};font-family:var(--mono);font-size:0.85rem;font-weight:600">${netStr}</span>`;
         container.appendChild(row);
     });
-
-    // Title
     const winner = sorted[0];
-    const myNet = sorted.reduce((s,p) => p.id===myPlayer?.id ? s : s + ((myPlayer?.total_score||0) - p.total_score), 0);
-    if (winner.id === myPlayer?.id) {
-        document.getElementById('lb-title').textContent = `You Win! Net: +$${myNet}`;
-    } else {
-        document.getElementById('lb-title').textContent = `${winner.name} Wins!`;
-    }
+    const myNet = myP ? (myP.total_score - (sorted.find(p=>p.id!==myP.id)?.total_score||0)) : 0;
+    document.getElementById('lb-title').textContent = winner.id===myP?.id ? `You Win! Net: +$${myNet}` : `${winner.name} Wins!`;
+    if(mpPollInterval){clearInterval(mpPollInterval);mpPollInterval=null;}
     mpLeaderboard.style.display = '';
 }
 
 document.getElementById('lb-btn-home').addEventListener('click', () => {
-    mpLeaderboard.style.display = 'none';
-    gameArea.style.display = 'none';
-    mpBar.style.display = 'none';
-    document.getElementById('opponents').style.display = 'none';
-    modeSelect.style.display = '';
-    MP.cleanup();
-    mpMode = false;
-    mpGameStarted = false;
-    if (mpPollInterval) { clearInterval(mpPollInterval); mpPollInterval = null; }
+    mpLeaderboard.style.display='none';gameArea.style.display='none';mpBar.style.display='none';
+    document.getElementById('opponents').style.display='none';
+    modeSelect.style.display='';document.title='Yahtzeeeee!';
+    MP.cleanup();mpMode=false;mpGameStarted=false;
+    if(mpPollInterval){clearInterval(mpPollInterval);mpPollInterval=null;}
     reset();
 });
 
-// === LOBBY BACK ===
 document.getElementById('btn-lobby-back').addEventListener('click', () => {
-    lobby.style.display = 'none';
-    modeSelect.style.display = '';
-    MP.cleanup();
+    lobby.style.display='none';modeSelect.style.display='';MP.cleanup();
 });
 
-// === CHECK URL FOR GAME CODE ===
 function checkUrlForGame() {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('game');
     if (code) {
-        modeSelect.style.display = 'none';
-        lobby.style.display = '';
-        MP.init();
-        // Pre-fill join tab
-        document.querySelectorAll('.lobby-tab').forEach(t => t.classList.remove('active'));
+        modeSelect.style.display='none';lobby.style.display='';MP.init();
+        document.querySelectorAll('.lobby-tab').forEach(t=>t.classList.remove('active'));
         document.querySelector('.lobby-tab[data-tab="join"]').classList.add('active');
-        document.getElementById('panel-create').style.display = 'none';
-        document.getElementById('panel-join').style.display = '';
-        document.getElementById('join-code').value = code.toUpperCase();
+        document.getElementById('panel-create').style.display='none';
+        document.getElementById('panel-join').style.display='';
+        document.getElementById('join-code').value=code.toUpperCase();
     }
 }
 
