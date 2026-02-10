@@ -341,9 +341,11 @@ input, button { touch-action: manipulation; }
  border: 1px solid rgba(255,255,255,0.06);
 }
 
+/* Scorecard 3-column layout: Category | My Score | Opp Score */
 .sc-header {
  display: flex;
  justify-content: space-between;
+ align-items: center;
  padding: 14px 20px;
  font-family: var(--mono);
  font-size: 0.7rem;
@@ -472,6 +474,29 @@ input, button { touch-action: manipulation; }
 .sc-row.sc-sep .sc-val {
  color: var(--gold);
 }
+
+/* Opponent column in scorecard */
+.sc-hdr-my, .sc-hdr-opp {
+ font-family: var(--mono);
+ font-size: 0.6rem;
+ text-transform: uppercase;
+ letter-spacing: 0.1em;
+ min-width: 42px;
+ text-align: right;
+}
+.sc-hdr-my { color: var(--gold); }
+.sc-hdr-opp { color: var(--teal); }
+.sc-opp {
+ font-family: var(--mono);
+ font-size: 0.8rem;
+ min-width: 42px;
+ text-align: right;
+ color: var(--teal);
+ opacity: 0.6;
+}
+.sc-opp.has-val { opacity: 0.8; }
+.sc-opp.is-zero { color: var(--red); opacity: 0.4; }
+.sc-row.sc-sep .sc-opp { color: var(--teal); opacity: 0.9; font-weight: 600; }
 
 /* Scored animation */
 .sc-row.just-scored {
@@ -1162,28 +1187,25 @@ input, button { touch-action: manipulation; }
  </div>
 
  <div class="scorecard" id="scorecard">
- <div class="sc-header"><span>Category</span><span>Score</span></div>
+ <div class="sc-header"><span>Category</span><span class="sc-hdr-my">My</span><span class="sc-hdr-opp" id="sc-hdr-opp" style="display:none">Opp</span></div>
  <div class="sc-section-label">Upper Section</div>
- <div class="sc-row" data-cat="ones"><span class="sc-name"><span class="sc-icon">âš€</span> Ones</span><span class="sc-val" id="v-ones"></span></div>
- <div class="sc-row" data-cat="twos"><span class="sc-name"><span class="sc-icon">âš</span> Twos</span><span class="sc-val" id="v-twos"></span></div>
- <div class="sc-row" data-cat="threes"><span class="sc-name"><span class="sc-icon">âš‚</span> Threes</span><span class="sc-val" id="v-threes"></span></div>
- <div class="sc-row" data-cat="fours"><span class="sc-name"><span class="sc-icon">âšƒ</span> Fours</span><span class="sc-val" id="v-fours"></span></div>
- <div class="sc-row" data-cat="fives"><span class="sc-name"><span class="sc-icon">âš„</span> Fives</span><span class="sc-val" id="v-fives"></span></div>
- <div class="sc-row" data-cat="sixes"><span class="sc-name"><span class="sc-icon">âš…</span> Sixes</span><span class="sc-val" id="v-sixes"></span></div>
- <div class="sc-row sc-sep"><span class="sc-name">Bonus (&ge;63)</span><span class="sc-val" id="v-bonus">0/63</span></div>
+ <div class="sc-row" data-cat="ones"><span class="sc-name">Ones</span><span class="sc-val" id="v-ones"></span><span class="sc-opp" id="o-ones"></span></div>
+ <div class="sc-row" data-cat="twos"><span class="sc-name">Twos</span><span class="sc-val" id="v-twos"></span><span class="sc-opp" id="o-twos"></span></div>
+ <div class="sc-row" data-cat="threes"><span class="sc-name">Threes</span><span class="sc-val" id="v-threes"></span><span class="sc-opp" id="o-threes"></span></div>
+ <div class="sc-row" data-cat="fours"><span class="sc-name">Fours</span><span class="sc-val" id="v-fours"></span><span class="sc-opp" id="o-fours"></span></div>
+ <div class="sc-row" data-cat="fives"><span class="sc-name">Fives</span><span class="sc-val" id="v-fives"></span><span class="sc-opp" id="o-fives"></span></div>
+ <div class="sc-row" data-cat="sixes"><span class="sc-name">Sixes</span><span class="sc-val" id="v-sixes"></span><span class="sc-opp" id="o-sixes"></span></div>
+ <div class="sc-row sc-sep"><span class="sc-name">Bonus (63+)</span><span class="sc-val" id="v-bonus">0/63</span><span class="sc-opp" id="o-bonus"></span></div>
  <div class="sc-section-label">Lower Section</div>
- <div class="sc-row" data-cat="three"><span class="sc-name">Three of a Kind</span><span class="sc-val" id="v-three"></span></div>
- <div class="sc-row" data-cat="four"><span class="sc-name">Four of a Kind</span><span class="sc-val" id="v-four"></span></div>
- <div class="sc-row" data-cat="full"><span class="sc-name">Full House</span><span class="sc-val" id="v-full"></span></div>
- <div class="sc-row" data-cat="smstr"><span class="sc-name">Sm. Straight</span><span class="sc-val" id="v-smstr"></span></div>
- <div class="sc-row" data-cat="lgstr"><span class="sc-name">Lg. Straight</span><span class="sc-val" id="v-lgstr"></span></div>
- <div class="sc-row" data-cat="yahtzee"><span class="sc-name"> YAHTZEE!</span><span class="sc-val" id="v-yahtzee"></span></div>
- <div class="sc-row" data-cat="chance"><span class="sc-name">Chance</span><span class="sc-val" id="v-chance"></span></div>
- <div class="sc-row sc-sep"><span class="sc-name">Total</span><span class="sc-val" id="v-total">0</span></div>
+ <div class="sc-row" data-cat="three"><span class="sc-name">3 of a Kind</span><span class="sc-val" id="v-three"></span><span class="sc-opp" id="o-three"></span></div>
+ <div class="sc-row" data-cat="four"><span class="sc-name">4 of a Kind</span><span class="sc-val" id="v-four"></span><span class="sc-opp" id="o-four"></span></div>
+ <div class="sc-row" data-cat="full"><span class="sc-name">Full House</span><span class="sc-val" id="v-full"></span><span class="sc-opp" id="o-full"></span></div>
+ <div class="sc-row" data-cat="smstr"><span class="sc-name">Sm Straight</span><span class="sc-val" id="v-smstr"></span><span class="sc-opp" id="o-smstr"></span></div>
+ <div class="sc-row" data-cat="lgstr"><span class="sc-name">Lg Straight</span><span class="sc-val" id="v-lgstr"></span><span class="sc-opp" id="o-lgstr"></span></div>
+ <div class="sc-row" data-cat="yahtzee"><span class="sc-name">YAHTZEE!</span><span class="sc-val" id="v-yahtzee"></span><span class="sc-opp" id="o-yahtzee"></span></div>
+ <div class="sc-row" data-cat="chance"><span class="sc-name">Chance</span><span class="sc-val" id="v-chance"></span><span class="sc-opp" id="o-chance"></span></div>
+ <div class="sc-row sc-sep"><span class="sc-name">Total</span><span class="sc-val" id="v-total">0</span><span class="sc-opp" id="o-total"></span></div>
  </div>
-
- <!-- Opponent scorecards (multiplayer only) -->
- <div class="opponents" id="opponents" style="display:none"></div>
 
  <div class="high-score" id="high-score-display"></div>
 
@@ -3548,21 +3570,44 @@ document.getElementById('recap-btn').addEventListener('click',()=>{recapOverlay.
 async function refreshOpponent() {
  const players=await MP.getPlayers();
  const myP=MP.getMyPlayer();
- const container=document.getElementById('opponents');
- if(!myP||players.length<2){container.style.display='none';return;}
- container.style.display='';
+ if(!myP||players.length<2){
+   // Hide opponent column
+   document.getElementById('sc-hdr-opp').style.display='none';
+   document.querySelectorAll('.sc-opp').forEach(el=>el.style.display='none');
+   return;
+ }
  const opp=players.find(p=>p.id!==myP.id);
  if(!opp)return;
  const sc=opp.scores||{};
- let html=`<div class="opp-header"><span class="opp-name">${opp.name}</span><span class="opp-total">$${opp.total_score}</span></div><div class="opp-rows">`;
- ALL_CATS_MP.forEach(cat=>{
- if(cat==='_bonus'){let u=0;['ones','twos','threes','fours','fives','sixes'].forEach(c=>{if(sc[c]!=null)u+=sc[c];});html+=`<div class="opp-row opp-sep"><span class="opp-cat">Bonus</span><span class="opp-val">${u>=63?'+35':u+'/63'}</span></div>`;return;}
- if(cat==='_total'){html+=`<div class="opp-row opp-sep"><span class="opp-cat">Total</span><span class="opp-val">$${opp.total_score}</span></div>`;return;}
- const v=sc[cat];const has=v!=null;const cls=has?(v===0?'has-score is-zero':'has-score'):'';
- html+=`<div class="opp-row ${cls}"><span class="opp-cat">${CAT_LABELS_MP[cat]||cat}</span><span class="opp-val">${has?v:''}</span></div>`;
+
+ // Show opponent column header with their name
+ const hdr=document.getElementById('sc-hdr-opp');
+ hdr.style.display='';
+ hdr.textContent=opp.name;
+
+ // Show all opponent cells
+ document.querySelectorAll('.sc-opp').forEach(el=>el.style.display='');
+
+ // Fill in opponent scores inline
+ const cats=['ones','twos','threes','fours','fives','sixes','three','four','full','smstr','lgstr','yahtzee','chance'];
+ cats.forEach(cat=>{
+   const el=document.getElementById('o-'+cat);
+   if(!el)return;
+   const v=sc[cat];
+   const has=v!=null;
+   el.textContent=has?v:'';
+   el.className='sc-opp'+(has?' has-val':'')+(has&&v===0?' is-zero':'');
  });
- html+='</div>';
- container.innerHTML=`<div class="opp-card">${html}</div>`;
+
+ // Bonus
+ let upper=0;
+ ['ones','twos','threes','fours','fives','sixes'].forEach(c=>{if(sc[c]!=null)upper+=sc[c];});
+ const bonusEl=document.getElementById('o-bonus');
+ if(bonusEl){bonusEl.textContent=upper>=63?'+35':upper+'/63';bonusEl.style.display='';bonusEl.className='sc-opp has-val';}
+
+ // Total
+ const totalEl=document.getElementById('o-total');
+ if(totalEl){totalEl.textContent='$'+opp.total_score;totalEl.style.display='';totalEl.className='sc-opp has-val';}
 }
 
 // === LEADERBOARD ===
