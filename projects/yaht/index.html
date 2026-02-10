@@ -2873,9 +2873,18 @@ function showNextBonus(callback) {
 // === SELECT CATEGORY ===
 async function select(cat) {
  if (!rolled||scores[cat]!==undefined) return;
- // In MP, block if not your turn
  if (mpMode && !MP.isMyTurn()) return;
  const pts = calc(cat, dice, jokerActive);
+
+ // Bad click protection: if this is a scratch (0 pts) and there are better options, confirm
+ if (pts === 0) {
+   const allCats = [...UPPER, ...LOWER];
+   const hasPositive = allCats.some(c => scores[c] === undefined && calc(c, dice, jokerActive) > 0);
+   if (hasPositive) {
+     if (!confirm('This would be a SCRATCH (0 points) and you have other options. Are you sure?')) return;
+   }
+ }
+
  scores[cat]=pts;
 
  // Flash the row
