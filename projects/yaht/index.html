@@ -2811,10 +2811,11 @@ async function checkBonusesAfterScore(cat) {
 }
 
 function checkEndGameBonuses() {
- // Clean Card no zeros
+ // Clean Card: no zeros AND must have upper bonus (63+)
  const allCats = [...UPPER, ...LOWER];
  const noZeros = allCats.every(c => scores[c] !== undefined && scores[c] > 0);
- if (noZeros) addBonus('cleancard');
+ const {upper} = getTotal();
+ if (noZeros && upper >= 63) addBonus('cleancard');
 
  // Score tiers (cumulative)
  const {total} = getTotal();
@@ -3186,8 +3187,8 @@ function getBonusTip() {
  const allCats = [...UPPER, ...LOWER];
  const zeros = allCats.filter(c => scores[c] === 0).length;
  const openSlots = allCats.filter(c => scores[c] === undefined).length;
- if (zeros === 0 && openSlots <= 5) return ` Clean Card! No zeros yet. Keep it clean = +$30. ${openSlots} left.`;
- if (zeros === 0 && openSlots > 5) return ' No scratches yet. Clean Card (no zeros) = +$30!';
+ if (zeros === 0 && openSlots <= 5) return `Clean Card watch! No zeros yet + need 63+ bonus. ${openSlots} slots left = +$30!`;
+ if (zeros === 0 && openSlots > 5) return 'Tip: Clean Card = no zeros + upper bonus (63+). Worth +$30!';
  }
 
  // --- SCORE TIERS ---
