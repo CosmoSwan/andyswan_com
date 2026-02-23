@@ -85,17 +85,19 @@ const MP = (function() {
         subscribe(g.id);
 
         // Auto-start: both players are in, start the game. Player 1 goes first.
-        await sb.from('games').update({
+        const startState = {
             status: 'playing',
-            current_turn: 1, // player 1 goes first
+            current_turn: 1,
             current_round: 1,
             turn_dice: [0,0,0,0,0],
             turn_held: [false,false,false,false,false],
             turn_rolls_left: 3,
             last_action: JSON.stringify({ type: 'game_started' }),
-        }).eq('id', g.id);
+        };
+        await sb.from('games').update(startState).eq('id', g.id);
+        game = { ...game, ...startState };
 
-        return { game: g, player: p };
+        return { game, player: p };
     }
 
     // === GET STATE ===
@@ -225,6 +227,10 @@ const MP = (function() {
 
     function setOnUpdate(cb) { onUpdate = cb; }
 
+    function updateLocalGame(g) {
+        if (g) game = g;
+    }
+
     function isMyTurn() {
         return game && me && game.current_turn === me.player_num;
     }
@@ -254,7 +260,7 @@ const MP = (function() {
     return {
         init, createGame, joinGame, getGameState, getPlayers,
         pushDiceState, pushHoldState, endTurn,
-        setOnUpdate, subscribe,
+        setOnUpdate, subscribe, updateLocalGame,
         isMyTurn, getMyPlayerNum, getOpponentName, getMatchTitle,
         isCreator, isMultiplayer, getCode, getMyPlayer, getGame,
         saveGameId, cleanup,

@@ -3504,6 +3504,7 @@ function showLobbyRoom() {
  MP.setOnUpdate((type, payload) => {
  if (type === 'game_change' && payload.new && payload.new.status === 'playing') {
  if (lobbyPoll) { clearInterval(lobbyPoll); lobbyPoll = null; }
+ MP.updateLocalGame(payload.new);
  startMultiplayerGame();
  }
  });
@@ -3553,6 +3554,7 @@ function startMultiplayerGame() {
 // === HANDLE GAME STATE UPDATES ===
 async function handleGameUpdate(g) {
  if (!g || !mpMode) return;
+ MP.updateLocalGame(g);
  const isMyTurn = g.current_turn === MP.getMyPlayerNum();
  document.getElementById('mp-bar-turn').textContent = isMyTurn ? "Your turn" : `${MP.getOpponentName()}'s turn`;
 
